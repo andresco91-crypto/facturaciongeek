@@ -17,8 +17,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Instalar dependencias exactas del proyecto
-        run: npm ci
+      - name: Instalar dependencias
+        run: npm install
 
       - name: Construir la app
         run: npm run build
