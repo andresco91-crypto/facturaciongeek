@@ -1,4 +1,6 @@
 import { Routes, Route, Link } from 'react-router-dom'
+import { AuthProvider, useAuth } from './hooks/useAuth'
+import Login from './pages/Login'
 
 function Placeholder({ title }) {
   return (
@@ -9,15 +11,23 @@ function Placeholder({ title }) {
   )
 }
 
-export default function App() {
+function AppLayout() {
+  const { cerrarSesion } = useAuth()
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-gray-900 text-white p-4 flex gap-4">
+      <nav className="bg-gray-900 text-white p-4 flex gap-4 items-center">
         <Link to="/">Ventas</Link>
         <Link to="/compras">Compras</Link>
         <Link to="/inventario">Inventario</Link>
         <Link to="/caja">Caja</Link>
         <Link to="/reportes">Reportes</Link>
+        <button
+          onClick={cerrarSesion}
+          className="ml-auto text-sm bg-gray-700 px-3 py-1 rounded hover:bg-gray-600"
+        >
+          Cerrar sesión
+        </button>
       </nav>
 
       <Routes>
@@ -28,5 +38,31 @@ export default function App() {
         <Route path="/reportes" element={<Placeholder title="Reportes" />} />
       </Routes>
     </div>
+  )
+}
+
+function AppContent() {
+  const { user, cargando } = useAuth()
+
+  if (cargando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Cargando...
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Login />
+  }
+
+  return <AppLayout />
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
