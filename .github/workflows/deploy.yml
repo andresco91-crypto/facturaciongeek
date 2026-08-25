@@ -9,7 +9,7 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Descargar el código
+      - name: Descargar el código del repositorio
         uses: actions/checkout@v4
 
       - name: Instalar Node.js
@@ -17,8 +17,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Instalar dependencias
-        run: npm install
+      - name: Instalar dependencias exactas del proyecto
+        run: npm ci
 
       - name: Construir la app
         run: npm run build
@@ -30,7 +30,7 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
-      - name: Desplegar a Firebase Hosting
+      - name: Desplegar la carpeta dist a Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
