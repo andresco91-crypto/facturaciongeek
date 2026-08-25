@@ -1,6 +1,7 @@
 import { Routes, Route, Link } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import Login from './pages/Login'
+import ImportarExcel from './pages/ImportarExcel'
 
 function Placeholder({ title }) {
   return (
@@ -16,12 +17,13 @@ function AppLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-gray-900 text-white p-4 flex gap-4 items-center">
+      <nav className="bg-gray-900 text-white p-4 flex gap-4 items-center flex-wrap">
         <Link to="/">Ventas</Link>
         <Link to="/compras">Compras</Link>
         <Link to="/inventario">Inventario</Link>
         <Link to="/caja">Caja</Link>
         <Link to="/reportes">Reportes</Link>
+        <Link to="/importar" className="text-yellow-400">Importar Excel</Link>
         <button
           onClick={cerrarSesion}
           className="ml-auto text-sm bg-gray-700 px-3 py-1 rounded hover:bg-gray-600"
@@ -36,6 +38,7 @@ function AppLayout() {
         <Route path="/inventario" element={<Placeholder title="Inventario" />} />
         <Route path="/caja" element={<Placeholder title="Caja" />} />
         <Route path="/reportes" element={<Placeholder title="Reportes" />} />
+        <Route path="/importar" element={<ImportarExcel />} />
       </Routes>
     </div>
   )
