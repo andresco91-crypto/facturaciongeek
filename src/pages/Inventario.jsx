@@ -6,14 +6,23 @@ import { useProductos } from '../hooks/useProductos'
 export default function Inventario() {
   const { productos, cargando, buscar, recargar } = useProductos()
   const [textoBusqueda, setTextoBusqueda] = useState('')
+  const [filtroStock, setFiltroStock] = useState('todos') // todos | con-stock | agotados
   const [editando, setEditando] = useState(null) // codigo del producto en edición
   const [valores, setValores] = useState({})
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
 
-  const listaFiltrada = textoBusqueda.trim()
-    ? buscarTodos(textoBusqueda)
-    : productos
+  const listaBase = textoBusqueda.trim() ? buscarTodos(textoBusqueda) : productos
+
+  const listaFiltrada = listaBase.filter((p) => {
+    const stock = Number(p.stock) || 0
+    if (filtroStock === 'con-stock') return stock > 0
+    if (filtroStock === 'agotados') return stock <= 0
+    return true
+  })
+
+  const cantidadConStock = productos.filter((p) => (Number(p.stock) || 0) > 0).length
+  const cantidadAgotados = productos.filter((p) => (Number(p.stock) || 0) <= 0).length
 
   function buscarTodos(texto) {
     const t = texto.toLowerCase().trim()
@@ -68,8 +77,41 @@ export default function Inventario() {
         value={textoBusqueda}
         onChange={(e) => setTextoBusqueda(e.target.value)}
         placeholder="Buscar por nombre o código..."
-        className="w-full max-w-md border border-line rounded-lg px-3 py-2 mb-4"
+        className="w-full max-w-md border border-line rounded-lg px-3 py-2 mb-3"
       />
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          onClick={() => setFiltroStock('todos')}
+          className={`text-sm px-3 py-1.5 rounded-lg border ${
+            filtroStock === 'todos'
+              ? 'bg-brand text-white border-brand'
+              : 'border-line text-slate-300 hover:bg-panel'
+          }`}
+        >
+          Todos ({productos.length})
+        </button>
+        <button
+          onClick={() => setFiltroStock('con-stock')}
+          className={`text-sm px-3 py-1.5 rounded-lg border ${
+            filtroStock === 'con-stock'
+              ? 'bg-emerald-600 text-white border-emerald-600'
+              : 'border-line text-slate-300 hover:bg-panel'
+          }`}
+        >
+          Con stock ({cantidadConStock})
+        </button>
+        <button
+          onClick={() => setFiltroStock('agotados')}
+          className={`text-sm px-3 py-1.5 rounded-lg border ${
+            filtroStock === 'agotados'
+              ? 'bg-red-600 text-white border-red-600'
+              : 'border-line text-slate-300 hover:bg-panel'
+          }`}
+        >
+          Agotados ({cantidadAgotados})
+        </button>
+      </div>
 
       {mensaje && (
         <div
@@ -176,7 +218,13 @@ export default function Inventario() {
                       <td className="p-2 text-right">
                         ${Number(p.precioMayorista || 0).toLocaleString()}
                       </td>
-                      <td className="p-2 text-right">{p.stock}</td>
+                      <td className="p-2 text-right">
+                        {p.stock <= 0 ? (
+                          <span className="text-red-400 font-medium">{p.stock}</span>
+                        ) : (
+                          p.stock
+                        )}
+                      </td>
                       <td className="p-2 text-muted">{p.garantia || '—'}</td>
                       <td className="p-2">
                         <button
