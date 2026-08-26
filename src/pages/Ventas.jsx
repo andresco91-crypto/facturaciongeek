@@ -1,0 +1,316 @@
+import { useState } from 'react'
+import {
+  collection,
+  doc,
+  writeBatch,
+  serverTimestamp,
+  increment,
+} from 'firebase/firestore'
+import { db } from '../lib/firebase'
+import { useProductos } from '../hooks/useProductos'
+
+const METODOS_PAGO = [
+  { id: 'efectivo', label: 'Efectivo' },
+  { id: 'tarjeta', label: 'Tarjeta' },
+  { id: 'transferencia', label: 'Transferencia' },
+]
+
+export default function Ventas() {
+  const { buscar, recargar } = useProductos()
+  const [textoBusqueda, setTextoBusqueda] = useState('')
+  const [items, setItems] = useState([])
+  const [pagos, setPagos] = useState([{ metodo: 'efectivo', monto: '' }])
+  const [guardando, setGuardando] = useState(false)
+  const [mensaje, setMensaje] = useState(null)
+
+  const resultados = buscar(textoBusqueda)
+
+  function agregarProducto(producto) {
+    if (items.some((i) => i.codigo === producto.codigo)) {
+      setTextoBusqueda('')
+      return
+    }
+    setItems([
+      ...items,
+      {
+        codigo: producto.codigo,
+        nombre: producto.nombre,
+        cantidad: 1,
+        tipoPrecio: 'publico',
+        precioUnitario: producto.precioPublico || 0,
+        precioPublico: producto.precioPublico || 0,
+        precioMayorista: producto.precioMayorista || 0,
+      },
+    ])
+    setTextoBusqueda('')
+  }
+
+  function actualizarItem(index, campo, valor) {
+    const copia = [...items]
+    copia[index][campo] = valor
+
+    // Si cambia el tipo de precio, autocompleta el precio unitario con el valor correspondiente
+    if (campo === 'tipoPrecio') {
+      copia[index].precioUnitario =
+        valor === 'publico' ? copia[index].precioPublico : copia[index].precioMayorista
+    }
+
+    setItems(copia)
+  }
+
+  function quitarItem(index) {
+    setItems(items.filter((_, i) => i !== index))
+  }
+
+  const total = items.reduce(
+    (acc, i) => acc + Number(i.cantidad || 0) * Number(i.precioUnitario || 0),
+    0
+  )
+
+  const totalPagos = pagos.reduce((acc, p) => acc + Number(p.monto || 0), 0)
+  const diferenciaPago = total - totalPagos
+
+  function agregarMetodoPago() {
+    setPagos([...pagos, { metodo: 'efectivo', monto: '' }])
+  }
+
+  function actualizarPago(index, campo, valor) {
+    const copia = [...pagos]
+    copia[index][campo] = valor
+    setPagos(copia)
+  }
+
+  function quitarPago(index) {
+    if (pagos.length === 1) return
+    setPagos(pagos.filter((_, i) => i !== index))
+  }
+
+  async function guardarVenta() {
+    if (items.length === 0) return
+    if (Math.abs(diferenciaPago) > 0.5) {
+      setMensaje({
+        tipo: 'error',
+        texto: `Los pagos (${totalPagos.toLocaleString()}) no cuadran con el total (${total.toLocaleString()}).`,
+      })
+      return
+    }
+
+    setGuardando(true)
+    setMensaje(null)
+
+    try {
+      const batch = writeBatch(db)
+
+      for (const item of items) {
+        const productoRef = doc(db, 'productos', item.codigo)
+        batch.update(productoRef, {
+          stock: increment(-Number(item.cantidad || 0)),
+        })
+      }
+
+      const ventaRef = doc(collection(db, 'ventas'))
+      batch.set(ventaRef, {
+        fecha: serverTimestamp(),
+        items: items.map((i) => ({
+          codigo: i.codigo,
+          nombre: i.nombre,
+          cantidad: Number(i.cantidad) || 0,
+          precioUnitario: Number(i.precioUnitario) || 0,
+          tipoPrecio: i.tipoPrecio,
+        })),
+        pagos: pagos
+          .filter((p) => Number(p.monto) > 0)
+          .map((p) => ({ metodo: p.metodo, monto: Number(p.monto) })),
+        total,
+      })
+
+      await batch.commit()
+
+      setMensaje({ tipo: 'exito', texto: `Venta registrada por $${total.toLocaleString()}.` })
+      setItems([])
+      setPagos([{ metodo: 'efectivo', monto: '' }])
+      recargar()
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: 'Error al guardar la venta: ' + err.message })
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="p-6 max-w-3xl">
+      <h1 className="text-2xl font-bold mb-4">Punto de venta</h1>
+
+      <div className="relative mb-4">
+        <input
+          type="text"
+          value={textoBusqueda}
+          onChange={(e) => setTextoBusqueda(e.target.value)}
+          placeholder="Buscar producto por nombre..."
+          className="w-full border border-gray-300 rounded px-3 py-2"
+        />
+        {textoBusqueda && (
+          <div className="absolute z-10 bg-white border border-gray-200 rounded shadow-md w-full mt-1 max-h-64 overflow-y-auto">
+            {resultados.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => agregarProducto(p)}
+                className="block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+              >
+                <span className="font-medium">{p.nombre}</span>{' '}
+                <span className="text-gray-400">
+                  (stock: {p.stock} · público ${Number(p.precioPublico).toLocaleString()})
+                </span>
+              </button>
+            ))}
+            {resultados.length === 0 && (
+              <p className="px-3 py-2 text-sm text-gray-400">Sin resultados.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {items.length > 0 && (
+        <div className="overflow-x-auto mb-4">
+          <table className="w-full text-sm border border-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-2 text-left">Producto</th>
+                <th className="p-2 text-right">Cant.</th>
+                <th className="p-2 text-left">Precio</th>
+                <th className="p-2 text-right">Unitario</th>
+                <th className="p-2 text-right">Subtotal</th>
+                <th className="p-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, idx) => (
+                <tr key={item.codigo} className="border-t">
+                  <td className="p-2">{item.nombre}</td>
+                  <td className="p-2 text-right">
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.cantidad}
+                      onChange={(e) => actualizarItem(idx, 'cantidad', e.target.value)}
+                      className="w-16 border border-gray-300 rounded px-2 py-1 text-right"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <select
+                      value={item.tipoPrecio}
+                      onChange={(e) => actualizarItem(idx, 'tipoPrecio', e.target.value)}
+                      className="border border-gray-300 rounded px-2 py-1 text-xs"
+                    >
+                      <option value="publico">Público</option>
+                      <option value="mayorista">Mayorista</option>
+                    </select>
+                  </td>
+                  <td className="p-2 text-right">
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.precioUnitario}
+                      onChange={(e) => actualizarItem(idx, 'precioUnitario', e.target.value)}
+                      className="w-24 border border-gray-300 rounded px-2 py-1 text-right"
+                    />
+                  </td>
+                  <td className="p-2 text-right">
+                    ${(Number(item.cantidad || 0) * Number(item.precioUnitario || 0)).toLocaleString()}
+                  </td>
+                  <td className="p-2 text-center">
+                    <button
+                      onClick={() => quitarItem(idx)}
+                      className="text-red-500 text-xs hover:underline"
+                    >
+                      Quitar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <p className="text-right font-semibold mt-2 text-lg">
+            Total: ${total.toLocaleString()}
+          </p>
+        </div>
+      )}
+
+      {items.length > 0 && (
+        <div className="mb-4 bg-white border border-gray-200 rounded p-4">
+          <p className="font-medium mb-2">Pago</p>
+          {pagos.map((pago, idx) => (
+            <div key={idx} className="flex gap-2 mb-2 items-center">
+              <select
+                value={pago.metodo}
+                onChange={(e) => actualizarPago(idx, 'metodo', e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-sm"
+              >
+                {METODOS_PAGO.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0"
+                placeholder="Monto"
+                value={pago.monto}
+                onChange={(e) => actualizarPago(idx, 'monto', e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-sm w-32"
+              />
+              {pagos.length > 1 && (
+                <button
+                  onClick={() => quitarPago(idx)}
+                  className="text-red-500 text-xs hover:underline"
+                >
+                  Quitar
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={agregarMetodoPago}
+            className="text-sm text-gray-600 hover:underline"
+          >
+            + Agregar otro método de pago
+          </button>
+
+          <p
+            className={`mt-2 text-sm font-medium ${
+              Math.abs(diferenciaPago) < 0.5 ? 'text-green-600' : 'text-red-600'
+            }`}
+          >
+            {Math.abs(diferenciaPago) < 0.5
+              ? 'Pagos completos ✓'
+              : diferenciaPago > 0
+              ? `Falta $${diferenciaPago.toLocaleString()} por pagar`
+              : `Sobran $${Math.abs(diferenciaPago).toLocaleString()} en pagos`}
+          </p>
+        </div>
+      )}
+
+      {mensaje && (
+        <div
+          className={`p-3 rounded mb-4 text-sm ${
+            mensaje.tipo === 'exito'
+              ? 'bg-green-50 text-green-700 border border-green-200'
+              : 'bg-red-50 text-red-700 border border-red-200'
+          }`}
+        >
+          {mensaje.texto}
+        </div>
+      )}
+
+      <button
+        onClick={guardarVenta}
+        disabled={items.length === 0 || guardando}
+        className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+      >
+        {guardando ? 'Guardando...' : 'Registrar venta'}
+      </button>
+    </div>
+  )
+}
