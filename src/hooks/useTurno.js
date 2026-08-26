@@ -54,11 +54,14 @@ export function useTurno() {
     })
   }
 
-  // Trae todas las ventas del turno para calcular el resumen al cerrar
+  // Trae las ventas del turno para calcular el resumen al cerrar,
+  // excluyendo las que fueron anuladas (ya no deben contar en el cuadre).
   async function obtenerVentasDelTurno(turnoId) {
     const q = query(collection(db, 'ventas'), where('turnoId', '==', turnoId))
     const snapshot = await getDocs(q)
-    return snapshot.docs.map((d) => d.data())
+    return snapshot.docs
+      .map((d) => d.data())
+      .filter((v) => v.anulada !== true)
   }
 
   return { turno, cargando, abrirTurno, cerrarTurno, obtenerVentasDelTurno }
