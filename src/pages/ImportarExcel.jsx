@@ -99,26 +99,26 @@ export default function ImportarExcel() {
   return (
     <div className="p-6 max-w-3xl">
       <h1 className="text-2xl font-bold mb-2">Importar productos desde Excel</h1>
-      <p className="text-gray-500 mb-6">
+      <p className="text-muted mb-6">
         Carga inicial del catálogo. Solo debes hacer esto una vez.
       </p>
 
       {estado === 'inicial' && (
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+        <div className="border-2 border-dashed border-line rounded-lg p-8 text-center">
           <input
             type="file"
             accept=".xlsx,.xls"
             onChange={handleArchivoSeleccionado}
             className="block mx-auto"
           />
-          <p className="text-sm text-gray-400 mt-2">
+          <p className="text-sm text-muted mt-2">
             Columnas esperadas: codigo, nombre, garantia, costo, precio1, precio2, cantidad
           </p>
         </div>
       )}
 
       {estado === 'leyendo' && (
-        <p className="text-gray-500">Leyendo archivo...</p>
+        <p className="text-muted">Leyendo archivo...</p>
       )}
 
       {estado === 'listo' && (
@@ -128,8 +128,8 @@ export default function ImportarExcel() {
             <strong>{archivo?.name}</strong>. Vista previa de los primeros 5:
           </p>
           <div className="overflow-x-auto mb-4">
-            <table className="w-full text-sm border border-gray-200">
-              <thead className="bg-gray-100">
+            <table className="w-full text-sm border border-line">
+              <thead className="bg-panel">
                 <tr>
                   <th className="p-2 text-left">Código</th>
                   <th className="p-2 text-left">Nombre</th>
@@ -155,7 +155,7 @@ export default function ImportarExcel() {
           </div>
           <button
             onClick={importarAFirestore}
-            className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800"
+            className="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark"
           >
             Importar {vistaPrevia.length} productos a Firestore
           </button>
@@ -167,9 +167,9 @@ export default function ImportarExcel() {
           <p className="mb-2">
             Importando... {progreso.hechos} / {progreso.total}
           </p>
-          <div className="w-full bg-gray-200 rounded-full h-3">
+          <div className="w-full bg-line rounded-full h-3">
             <div
-              className="bg-gray-900 h-3 rounded-full transition-all"
+              className="bg-brand h-3 rounded-full transition-all"
               style={{ width: `${(progreso.hechos / progreso.total) * 100}%` }}
             />
           </div>
@@ -177,9 +177,9 @@ export default function ImportarExcel() {
       )}
 
       {estado === 'hecho' && resumen && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="font-semibold text-green-800">Importación completada</p>
-          <p className="text-sm text-green-700 mt-1">
+        <div className="bg-emerald-950/40 border border-emerald-900 rounded-lg p-4">
+          <p className="font-semibold text-emerald-300">Importación completada</p>
+          <p className="text-sm text-emerald-300 mt-1">
             {resumen.importados} productos importados
             {resumen.saltados > 0 && `, ${resumen.saltados} filas saltadas (sin código)`}
           </p>
@@ -187,8 +187,8 @@ export default function ImportarExcel() {
       )}
 
       {estado === 'error' && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-700">{mensajeError}</p>
+        <div className="bg-red-950/40 border border-red-900 rounded-lg p-4">
+          <p className="text-red-300">{mensajeError}</p>
         </div>
       )}
     </div>
