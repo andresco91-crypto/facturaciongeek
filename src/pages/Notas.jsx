@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   collection,
   addDoc,
+  updateDoc,
   deleteDoc,
   doc,
   onSnapshot,
@@ -22,6 +23,9 @@ export default function Notas() {
   const [notas, setNotas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [editandoId, setEditandoId] = useState(null)
+  const [textoEdicion, setTextoEdicion] = useState('')
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false)
 
   useEffect(() => {
     const q = query(collection(db, 'notas'), orderBy('fecha', 'desc'))
@@ -55,6 +59,34 @@ export default function Notas() {
       await deleteDoc(doc(db, 'notas', id))
     } catch (err) {
       alert('Error al borrar: ' + err.message)
+    }
+  }
+
+  function empezarEdicion(nota) {
+    setEditandoId(nota.id)
+    setTextoEdicion(nota.texto)
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null)
+    setTextoEdicion('')
+  }
+
+  async function guardarEdicion(id) {
+    const contenido = textoEdicion.trim()
+    if (!contenido) return
+    setGuardandoEdicion(true)
+    try {
+      await updateDoc(doc(db, 'notas', id), {
+        texto: contenido,
+        fechaEdicion: serverTimestamp(),
+      })
+      setEditandoId(null)
+      setTextoEdicion('')
+    } catch (err) {
+      alert('Error al guardar los cambios: ' + err.message)
+    } finally {
+      setGuardandoEdicion(false)
     }
   }
 
@@ -100,18 +132,58 @@ export default function Notas() {
           {notas.map((nota) => (
             <div
               key={nota.id}
-              className="bg-white border border-gray-200 rounded p-3 flex justify-between items-start gap-3"
+              className="bg-white border border-gray-200 rounded p-3"
             >
-              <div>
-                <p className="whitespace-pre-wrap">{nota.texto}</p>
-                <p className="text-xs text-gray-400 mt-1">{formatearFecha(nota.fecha)}</p>
-              </div>
-              <button
-                onClick={() => borrarNota(nota.id)}
-                className="text-red-500 text-xs hover:underline whitespace-nowrap"
-              >
-                Borrar
-              </button>
+              {editandoId === nota.id ? (
+                <div>
+                  <textarea
+                    value={textoEdicion}
+                    onChange={(e) => setTextoEdicion(e.target.value)}
+                    rows={3}
+                    className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+                    autoFocus
+                  />
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => guardarEdicion(nota.id)}
+                      disabled={guardandoEdicion || !textoEdicion.trim()}
+                      className="text-green-700 text-sm font-medium hover:underline disabled:opacity-50"
+                    >
+                      {guardandoEdicion ? 'Guardando...' : 'Guardar'}
+                    </button>
+                    <button
+                      onClick={cancelarEdicion}
+                      className="text-gray-500 text-sm hover:underline"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-start gap-3">
+                  <div>
+                    <p className="whitespace-pre-wrap">{nota.texto}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {formatearFecha(nota.fecha)}
+                      {nota.fechaEdicion && ' (editada)'}
+                    </p>
+                  </div>
+                  <div className="flex gap-3 whitespace-nowrap">
+                    <button
+                      onClick={() => empezarEdicion(nota)}
+                      className="text-blue-600 text-xs hover:underline"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => borrarNota(nota.id)}
+                      className="text-red-500 text-xs hover:underline"
+                    >
+                      Borrar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
