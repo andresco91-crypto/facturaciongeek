@@ -1,5 +1,6 @@
 import { Routes, Route, Link } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
+import { CompraDraftProvider } from './hooks/useCompraDraft'
 import Login from './pages/Login'
 import ImportarExcel from './pages/ImportarExcel'
 import Compras from './pages/Compras'
@@ -61,7 +62,11 @@ function AppContent() {
     return <Login />
   }
 
-  return <AppLayout />
+  return (
+    <CompraDraftProvider>
+      <AppLayout />
+    </CompraDraftProvider>
+  )
 }
 
 export default function App() {
