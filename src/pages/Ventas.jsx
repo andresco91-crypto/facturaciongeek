@@ -49,7 +49,6 @@ export default function Ventas() {
     const copia = [...items]
     copia[index][campo] = valor
 
-    // Si cambia el tipo de precio, autocompleta el precio unitario con el valor correspondiente
     if (campo === 'tipoPrecio') {
       copia[index].precioUnitario =
         valor === 'publico' ? copia[index].precioPublico : copia[index].precioMayorista
@@ -67,7 +66,13 @@ export default function Ventas() {
     0
   )
 
-  const totalPagos = pagos.reduce((acc, p) => acc + Number(p.monto || 0), 0)
+  // Con un solo método de pago, el monto siempre es el total (no hay que escribirlo).
+  // Con varios métodos, cada uno se especifica manualmente para poder dividir el pago.
+  const pagoUnico = pagos.length === 1
+
+  const totalPagos = pagoUnico
+    ? total
+    : pagos.reduce((acc, p) => acc + Number(p.monto || 0), 0)
   const diferenciaPago = total - totalPagos
 
   function agregarMetodoPago() {
@@ -82,7 +87,8 @@ export default function Ventas() {
 
   function quitarPago(index) {
     if (pagos.length === 1) return
-    setPagos(pagos.filter((_, i) => i !== index))
+    const restantes = pagos.filter((_, i) => i !== index)
+    setPagos(restantes)
   }
 
   async function guardarVenta() {
@@ -108,6 +114,12 @@ export default function Ventas() {
         })
       }
 
+      const pagosFinales = pagoUnico
+        ? [{ metodo: pagos[0].metodo, monto: total }]
+        : pagos
+            .filter((p) => Number(p.monto) > 0)
+            .map((p) => ({ metodo: p.metodo, monto: Number(p.monto) }))
+
       const ventaRef = doc(collection(db, 'ventas'))
       batch.set(ventaRef, {
         fecha: serverTimestamp(),
@@ -118,9 +130,7 @@ export default function Ventas() {
           precioUnitario: Number(i.precioUnitario) || 0,
           tipoPrecio: i.tipoPrecio,
         })),
-        pagos: pagos
-          .filter((p) => Number(p.monto) > 0)
-          .map((p) => ({ metodo: p.metodo, monto: Number(p.monto) })),
+        pagos: pagosFinales,
         total,
       })
 
@@ -240,11 +250,12 @@ export default function Ventas() {
       {items.length > 0 && (
         <div className="mb-4 bg-white border border-gray-200 rounded p-4">
           <p className="font-medium mb-2">Pago</p>
-          {pagos.map((pago, idx) => (
-            <div key={idx} className="flex gap-2 mb-2 items-center">
+
+          {pagoUnico ? (
+            <div className="flex gap-2 mb-2 items-center">
               <select
-                value={pago.metodo}
-                onChange={(e) => actualizarPago(idx, 'metodo', e.target.value)}
+                value={pagos[0].metodo}
+                onChange={(e) => actualizarPago(0, 'metodo', e.target.value)}
                 className="border border-gray-300 rounded px-2 py-1 text-sm"
               >
                 {METODOS_PAGO.map((m) => (
@@ -253,42 +264,62 @@ export default function Ventas() {
                   </option>
                 ))}
               </select>
-              <input
-                type="number"
-                min="0"
-                placeholder="Monto"
-                value={pago.monto}
-                onChange={(e) => actualizarPago(idx, 'monto', e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm w-32"
-              />
-              {pagos.length > 1 && (
+              <span className="text-sm text-gray-600">
+                Monto: <strong>${total.toLocaleString()}</strong> (total de la venta)
+              </span>
+            </div>
+          ) : (
+            pagos.map((pago, idx) => (
+              <div key={idx} className="flex gap-2 mb-2 items-center">
+                <select
+                  value={pago.metodo}
+                  onChange={(e) => actualizarPago(idx, 'metodo', e.target.value)}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                >
+                  {METODOS_PAGO.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Monto"
+                  value={pago.monto}
+                  onChange={(e) => actualizarPago(idx, 'monto', e.target.value)}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm w-32"
+                />
                 <button
                   onClick={() => quitarPago(idx)}
                   className="text-red-500 text-xs hover:underline"
                 >
                   Quitar
                 </button>
-              )}
-            </div>
-          ))}
+              </div>
+            ))
+          )}
+
           <button
             onClick={agregarMetodoPago}
             className="text-sm text-gray-600 hover:underline"
           >
-            + Agregar otro método de pago
+            + Dividir pago en otro método
           </button>
 
-          <p
-            className={`mt-2 text-sm font-medium ${
-              Math.abs(diferenciaPago) < 0.5 ? 'text-green-600' : 'text-red-600'
-            }`}
-          >
-            {Math.abs(diferenciaPago) < 0.5
-              ? 'Pagos completos ✓'
-              : diferenciaPago > 0
-              ? `Falta $${diferenciaPago.toLocaleString()} por pagar`
-              : `Sobran $${Math.abs(diferenciaPago).toLocaleString()} en pagos`}
-          </p>
+          {!pagoUnico && (
+            <p
+              className={`mt-2 text-sm font-medium ${
+                Math.abs(diferenciaPago) < 0.5 ? 'text-green-600' : 'text-red-600'
+              }`}
+            >
+              {Math.abs(diferenciaPago) < 0.5
+                ? 'Pagos completos ✓'
+                : diferenciaPago > 0
+                ? `Falta $${diferenciaPago.toLocaleString()} por pagar`
+                : `Sobran $${Math.abs(diferenciaPago).toLocaleString()} en pagos`}
+            </p>
+          )}
         </div>
       )}
 
