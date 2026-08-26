@@ -5,6 +5,10 @@ import {
   where,
   orderBy,
   getDocs,
+  doc,
+  writeBatch,
+  increment,
+  serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
@@ -25,6 +29,7 @@ export default function HistorialVentas() {
   const [ventas, setVentas] = useState([])
   const [expandida, setExpandida] = useState(null)
   const [cargando, setCargando] = useState(false)
+  const [anulando, setAnulando] = useState(null)
   const [error, setError] = useState('')
   const [buscado, setBuscado] = useState(false)
 
@@ -53,6 +58,45 @@ export default function HistorialVentas() {
 
   function toggleExpandir(id) {
     setExpandida(expandida === id ? null : id)
+  }
+
+  async function anularVenta(venta) {
+    const confirmado = confirm(
+      `¿Anular esta venta por $${Number(venta.total).toLocaleString()} del ${formatearFecha(
+        venta.fecha
+      )}?\n\nEsto devolverá el stock de los productos vendidos. Esta acción no se puede deshacer.`
+    )
+    if (!confirmado) return
+
+    setAnulando(venta.id)
+    setError('')
+    try {
+      const batch = writeBatch(db)
+
+      // Devuelve el stock de cada producto vendido
+      for (const item of venta.items || []) {
+        const productoRef = doc(db, 'productos', item.codigo)
+        batch.update(productoRef, {
+          stock: increment(Number(item.cantidad) || 0),
+        })
+      }
+
+      const ventaRef = doc(db, 'ventas', venta.id)
+      batch.update(ventaRef, {
+        anulada: true,
+        fechaAnulacion: serverTimestamp(),
+      })
+
+      await batch.commit()
+
+      setVentas((prev) =>
+        prev.map((v) => (v.id === venta.id ? { ...v, anulada: true } : v))
+      )
+    } catch (err) {
+      setError('Error al anular la venta: ' + err.message)
+    } finally {
+      setAnulando(null)
+    }
   }
 
   return (
@@ -101,7 +145,12 @@ export default function HistorialVentas() {
 
           <div className="space-y-2">
             {ventas.map((venta) => (
-              <div key={venta.id} className="bg-white border border-gray-200 rounded">
+              <div
+                key={venta.id}
+                className={`bg-white border rounded ${
+                  venta.anulada ? 'border-red-200 opacity-60' : 'border-gray-200'
+                }`}
+              >
                 <button
                   onClick={() => toggleExpandir(venta.id)}
                   className="w-full text-left p-3 flex justify-between items-center hover:bg-gray-50"
@@ -111,6 +160,11 @@ export default function HistorialVentas() {
                     <span className="text-gray-400 ml-2 text-sm">
                       {venta.items?.length || 0} producto(s)
                     </span>
+                    {venta.anulada && (
+                      <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">
+                        ANULADA
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold">
@@ -154,7 +208,7 @@ export default function HistorialVentas() {
                       </tbody>
                     </table>
 
-                    <p className="text-gray-600">
+                    <p className="text-gray-600 mb-3">
                       <span className="font-medium">Pago:</span>{' '}
                       {venta.pagos?.map((p, idx) => (
                         <span key={idx}>
@@ -163,6 +217,21 @@ export default function HistorialVentas() {
                         </span>
                       ))}
                     </p>
+
+                    {venta.anulada ? (
+                      <p className="text-red-600 text-xs font-medium">
+                        Esta venta fue anulada el {formatearFecha(venta.fechaAnulacion)}.
+                        El stock ya fue devuelto.
+                      </p>
+                    ) : (
+                      <button
+                        onClick={() => anularVenta(venta)}
+                        disabled={anulando === venta.id}
+                        className="text-red-600 text-xs font-medium hover:underline disabled:opacity-50"
+                      >
+                        {anulando === venta.id ? 'Anulando...' : 'Anular esta factura'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
