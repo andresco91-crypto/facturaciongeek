@@ -109,7 +109,7 @@ export default function Caja() {
     : 0
 
   if (cargando) {
-    return <div className="p-6 text-gray-500">Cargando...</div>
+    return <div className="p-6 text-muted">Cargando...</div>
   }
 
   return (
@@ -120,8 +120,8 @@ export default function Caja() {
         <div
           className={`p-3 rounded mb-4 text-sm ${
             mensaje.tipo === 'exito'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
+              ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-900'
+              : 'bg-red-950/40 text-red-300 border border-red-900'
           }`}
         >
           {mensaje.texto}
@@ -129,11 +129,11 @@ export default function Caja() {
       )}
 
       {!turno && (
-        <div className="bg-white border border-gray-200 rounded p-6">
-          <p className="text-gray-600 mb-4">
+        <div className="bg-card border border-line rounded p-6">
+          <p className="text-slate-300 mb-4">
             No hay ningún turno de caja abierto. Debes abrir uno para poder registrar ventas.
           </p>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-slate-200 mb-1">
             Monto inicial en caja
           </label>
           <input
@@ -142,13 +142,13 @@ export default function Caja() {
             value={montoInicial}
             onChange={(e) => setMontoInicial(e.target.value)}
             placeholder="0"
-            className="border border-gray-300 rounded px-3 py-2 w-48 mb-4"
+            className="border border-line rounded-lg px-3 py-2 w-48 mb-4"
           />
           <div>
             <button
               onClick={handleAbrirTurno}
               disabled={procesando}
-              className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+              className="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark disabled:opacity-50"
             >
               {procesando ? 'Abriendo...' : 'Abrir turno'}
             </button>
@@ -157,12 +157,12 @@ export default function Caja() {
       )}
 
       {turno && (
-        <div className="bg-white border border-gray-200 rounded p-6">
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="bg-card border border-line rounded p-6">
+          <p className="text-sm text-muted mb-4">
             Turno abierto con ${Number(turno.montoInicial).toLocaleString()} de base.
           </p>
 
-          {cargandoResumen && <p className="text-gray-400 text-sm">Calculando resumen...</p>}
+          {cargandoResumen && <p className="text-muted text-sm">Calculando resumen...</p>}
 
           {resumen && (
             <div className="mb-6">
@@ -170,20 +170,20 @@ export default function Caja() {
                 Ventas del turno: {resumen.cantidadVentas}
               </p>
               <div className="grid grid-cols-2 gap-2 text-sm mb-2">
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-gray-500">Efectivo</p>
+                <div className="bg-panel rounded p-3">
+                  <p className="text-muted">Efectivo</p>
                   <p className="font-semibold">${resumen.efectivo.toLocaleString()}</p>
                 </div>
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-gray-500">Tarjeta</p>
+                <div className="bg-panel rounded p-3">
+                  <p className="text-muted">Tarjeta</p>
                   <p className="font-semibold">${resumen.tarjeta.toLocaleString()}</p>
                 </div>
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-gray-500">Transferencia</p>
+                <div className="bg-panel rounded p-3">
+                  <p className="text-muted">Transferencia</p>
                   <p className="font-semibold">${resumen.transferencia.toLocaleString()}</p>
                 </div>
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-gray-500">Total ventas</p>
+                <div className="bg-panel rounded p-3">
+                  <p className="text-muted">Total ventas</p>
                   <p className="font-semibold">${resumen.totalVentas.toLocaleString()}</p>
                 </div>
               </div>
@@ -193,7 +193,7 @@ export default function Caja() {
           <div className="border-t pt-4">
             <p className="font-medium mb-2">Cerrar turno</p>
 
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-200 mb-1">
               Cobro de jornal del trabajador (opcional)
             </label>
             <input
@@ -202,21 +202,21 @@ export default function Caja() {
               value={montoJornal}
               onChange={(e) => setMontoJornal(e.target.value)}
               placeholder="0"
-              className="border border-gray-300 rounded px-3 py-2 w-48 mb-3"
+              className="border border-line rounded-lg px-3 py-2 w-48 mb-3"
             />
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-xs text-muted mb-4">
               Este valor se descuenta del efectivo esperado en caja.
             </p>
 
             {resumen && (
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-slate-300 mb-4">
                 Efectivo esperado: base (${Number(turno.montoInicial).toLocaleString()}) +
                 ventas en efectivo (${resumen.efectivo.toLocaleString()}) − jornal (${jornalPreview.toLocaleString()}) ={' '}
                 <strong>${efectivoEsperadoPreview.toLocaleString()}</strong>
               </p>
             )}
 
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-slate-200 mb-1">
               Monto contado físicamente en caja (solo efectivo)
             </label>
             <input
@@ -225,7 +225,7 @@ export default function Caja() {
               value={montoFinalEfectivo}
               onChange={(e) => setMontoFinalEfectivo(e.target.value)}
               placeholder="0"
-              className="border border-gray-300 rounded px-3 py-2 w-48 mb-4"
+              className="border border-line rounded-lg px-3 py-2 w-48 mb-4"
             />
             <div>
               <button
