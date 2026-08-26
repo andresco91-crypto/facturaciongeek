@@ -8,6 +8,7 @@ import Caja from './pages/Caja'
 import Reportes from './pages/Reportes'
 import Inventario from './pages/Inventario'
 import HistorialVentas from './pages/HistorialVentas'
+import HistorialCompras from './pages/HistorialCompras'
 
 function AppLayout() {
   const { cerrarSesion } = useAuth()
@@ -18,7 +19,8 @@ function AppLayout() {
         <Link to="/">Ventas</Link>
         <Link to="/compras">Compras</Link>
         <Link to="/inventario">Inventario</Link>
-        <Link to="/historial">Historial</Link>
+        <Link to="/historial">Historial ventas</Link>
+        <Link to="/historial-compras">Historial compras</Link>
         <Link to="/caja">Caja</Link>
         <Link to="/reportes">Reportes</Link>
         <Link to="/importar" className="text-yellow-400">Importar Excel</Link>
@@ -35,6 +37,7 @@ function AppLayout() {
         <Route path="/compras" element={<Compras />} />
         <Route path="/inventario" element={<Inventario />} />
         <Route path="/historial" element={<HistorialVentas />} />
+        <Route path="/historial-compras" element={<HistorialCompras />} />
         <Route path="/caja" element={<Caja />} />
         <Route path="/reportes" element={<Reportes />} />
         <Route path="/importar" element={<ImportarExcel />} />
