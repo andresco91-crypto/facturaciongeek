@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   collection,
   doc,
@@ -24,8 +24,19 @@ export default function Ventas() {
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
   const [ultimaVenta, setUltimaVenta] = useState(null)
+  const ventaParaImprimirRef = useRef(null)
 
   const resultados = buscar(textoBusqueda)
+
+  // Imprime automáticamente en cuanto el ticket de la nueva venta ya está
+  // renderizado en el DOM (ultimaVenta cambia después de guardar).
+  useEffect(() => {
+    if (ultimaVenta && ultimaVenta !== ventaParaImprimirRef.current) {
+      ventaParaImprimirRef.current = ultimaVenta
+      const timer = setTimeout(() => window.print(), 150)
+      return () => clearTimeout(timer)
+    }
+  }, [ultimaVenta])
 
   function agregarProducto(producto) {
     setItems((prev) => {
@@ -376,7 +387,7 @@ export default function Ventas() {
               onClick={imprimirTicket}
               className="ml-3 underline font-medium hover:text-green-900"
             >
-              Imprimir ticket
+              Reimprimir ticket
             </button>
           )}
         </div>
