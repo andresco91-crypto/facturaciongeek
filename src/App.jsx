@@ -6,15 +6,9 @@ import Compras from './pages/Compras'
 import Ventas from './pages/Ventas'
 import Caja from './pages/Caja'
 import Reportes from './pages/Reportes'
-
-function Placeholder({ title }) {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">{title}</h1>
-      <p className="text-gray-500 mt-2">Módulo en construcción.</p>
-    </div>
-  )
-}
+import Inventario from './pages/Inventario'
+import HistorialVentas from './pages/HistorialVentas'
+import Gastos from './pages/Gastos'
 
 function AppLayout() {
   const { cerrarSesion } = useAuth()
@@ -25,7 +19,9 @@ function AppLayout() {
         <Link to="/">Ventas</Link>
         <Link to="/compras">Compras</Link>
         <Link to="/inventario">Inventario</Link>
+        <Link to="/historial">Historial</Link>
         <Link to="/caja">Caja</Link>
+        <Link to="/gastos">Gastos</Link>
         <Link to="/reportes">Reportes</Link>
         <Link to="/importar" className="text-yellow-400">Importar Excel</Link>
         <button
@@ -39,8 +35,10 @@ function AppLayout() {
       <Routes>
         <Route path="/" element={<Ventas />} />
         <Route path="/compras" element={<Compras />} />
-        <Route path="/inventario" element={<Placeholder title="Inventario" />} />
+        <Route path="/inventario" element={<Inventario />} />
+        <Route path="/historial" element={<HistorialVentas />} />
         <Route path="/caja" element={<Caja />} />
+        <Route path="/gastos" element={<Gastos />} />
         <Route path="/reportes" element={<Reportes />} />
         <Route path="/importar" element={<ImportarExcel />} />
       </Routes>
