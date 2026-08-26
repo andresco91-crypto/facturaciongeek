@@ -103,43 +103,43 @@ export default function HistorialVentas() {
     <div className="p-6 max-w-4xl">
       <h1 className="text-2xl font-bold mb-4">Historial de ventas</h1>
 
-      <div className="bg-white border border-gray-200 rounded p-4 mb-6 flex flex-wrap gap-4 items-end">
+      <div className="bg-card border border-line rounded p-4 mb-6 flex flex-wrap gap-4 items-end">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+          <label className="block text-sm font-medium text-slate-200 mb-1">Desde</label>
           <input
             type="date"
             value={desde}
             onChange={(e) => setDesde(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2"
+            className="border border-line rounded-lg px-3 py-2"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+          <label className="block text-sm font-medium text-slate-200 mb-1">Hasta</label>
           <input
             type="date"
             value={hasta}
             onChange={(e) => setHasta(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2"
+            className="border border-line rounded-lg px-3 py-2"
           />
         </div>
         <button
           onClick={buscarVentas}
           disabled={cargando}
-          className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+          className="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark disabled:opacity-50"
         >
           {cargando ? 'Buscando...' : 'Buscar ventas'}
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 mb-4 text-sm">
+        <div className="bg-red-950/40 border border-red-900 text-red-300 rounded p-3 mb-4 text-sm">
           {error}
         </div>
       )}
 
       {buscado && (
         <>
-          <p className="text-sm text-gray-500 mb-2">
+          <p className="text-sm text-muted mb-2">
             {ventas.length} venta(s) encontrada(s)
           </p>
 
@@ -147,21 +147,21 @@ export default function HistorialVentas() {
             {ventas.map((venta) => (
               <div
                 key={venta.id}
-                className={`bg-white border rounded ${
-                  venta.anulada ? 'border-red-200 opacity-60' : 'border-gray-200'
+                className={`bg-card border rounded ${
+                  venta.anulada ? 'border-red-900 opacity-60' : 'border-line'
                 }`}
               >
                 <button
                   onClick={() => toggleExpandir(venta.id)}
-                  className="w-full text-left p-3 flex justify-between items-center hover:bg-gray-50"
+                  className="w-full text-left p-3 flex justify-between items-center hover:bg-panel"
                 >
                   <div>
                     <span className="font-medium">{formatearFecha(venta.fecha)}</span>
-                    <span className="text-gray-400 ml-2 text-sm">
+                    <span className="text-muted ml-2 text-sm">
                       {venta.items?.length || 0} producto(s)
                     </span>
                     {venta.anulada && (
-                      <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">
+                      <span className="ml-2 text-xs bg-red-950/60 text-red-300 px-2 py-0.5 rounded">
                         ANULADA
                       </span>
                     )}
@@ -170,7 +170,7 @@ export default function HistorialVentas() {
                     <span className="font-semibold">
                       ${Number(venta.total || 0).toLocaleString()}
                     </span>
-                    <span className="text-gray-400 text-xs">
+                    <span className="text-muted text-xs">
                       {expandida === venta.id ? '▲' : '▼'}
                     </span>
                   </div>
@@ -180,7 +180,7 @@ export default function HistorialVentas() {
                   <div className="border-t p-3 text-sm">
                     <table className="w-full mb-3">
                       <thead>
-                        <tr className="text-gray-500">
+                        <tr className="text-muted">
                           <th className="text-left font-normal">Producto</th>
                           <th className="text-right font-normal">Cant.</th>
                           <th className="text-right font-normal">Unitario</th>
@@ -192,7 +192,7 @@ export default function HistorialVentas() {
                           <tr key={idx} className="border-t">
                             <td className="py-1">
                               {item.nombre}{' '}
-                              <span className="text-gray-400 text-xs">
+                              <span className="text-muted text-xs">
                                 ({item.tipoPrecio === 'mayorista' ? 'mayorista' : 'público'})
                               </span>
                             </td>
@@ -208,7 +208,7 @@ export default function HistorialVentas() {
                       </tbody>
                     </table>
 
-                    <p className="text-gray-600 mb-3">
+                    <p className="text-slate-300 mb-3">
                       <span className="font-medium">Pago:</span>{' '}
                       {venta.pagos?.map((p, idx) => (
                         <span key={idx}>
@@ -219,7 +219,7 @@ export default function HistorialVentas() {
                     </p>
 
                     {venta.anulada ? (
-                      <p className="text-red-600 text-xs font-medium">
+                      <p className="text-red-400 text-xs font-medium">
                         Esta venta fue anulada el {formatearFecha(venta.fechaAnulacion)}.
                         El stock ya fue devuelto.
                       </p>
@@ -227,7 +227,7 @@ export default function HistorialVentas() {
                       <button
                         onClick={() => anularVenta(venta)}
                         disabled={anulando === venta.id}
-                        className="text-red-600 text-xs font-medium hover:underline disabled:opacity-50"
+                        className="text-red-400 text-xs font-medium hover:underline disabled:opacity-50"
                       >
                         {anulando === venta.id ? 'Anulando...' : 'Anular esta factura'}
                       </button>
@@ -238,7 +238,7 @@ export default function HistorialVentas() {
             ))}
 
             {ventas.length === 0 && (
-              <p className="text-gray-400">No hay ventas en este rango de fechas.</p>
+              <p className="text-muted">No hay ventas en este rango de fechas.</p>
             )}
           </div>
         </>
