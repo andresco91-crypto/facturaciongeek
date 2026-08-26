@@ -10,6 +10,7 @@ import {
   BarChart3,
   StickyNote,
   FileSpreadsheet,
+  Download,
   Menu,
   LogOut,
   Users,
@@ -29,6 +30,7 @@ import Inventario from './pages/Inventario'
 import HistorialVentas from './pages/HistorialVentas'
 import HistorialCompras from './pages/HistorialCompras'
 import Notas from './pages/Notas'
+import Exportar from './pages/Exportar'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -36,6 +38,7 @@ const RUTAS_SOLO_ADMIN = [
   '/historial-compras',
   '/reportes',
   '/importar',
+  '/exportar',
 ]
 
 const NAV_ITEMS = [
@@ -48,6 +51,7 @@ const NAV_ITEMS = [
   { to: '/reportes', label: 'Reportes', icon: BarChart3, admin: true },
   { to: '/notas', label: 'Notas', icon: StickyNote, admin: false },
   { to: '/importar', label: 'Importar Excel', icon: FileSpreadsheet, admin: true, accent: true },
+  { to: '/exportar', label: 'Exportar datos', icon: Download, admin: true },
 ]
 
 function RutaProtegida({ children }) {
@@ -236,6 +240,14 @@ function AppLayout() {
               element={
                 <RutaProtegida>
                   <ImportarExcel />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path="/exportar"
+              element={
+                <RutaProtegida>
+                  <Exportar />
                 </RutaProtegida>
               }
             />
