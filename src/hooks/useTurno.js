@@ -49,6 +49,7 @@ export function useTurno() {
       totalVentasEfectivo: resumenVentas.efectivo,
       totalVentasTarjeta: resumenVentas.tarjeta,
       totalVentasTransferencia: resumenVentas.transferencia,
+      totalGastos: resumenVentas.totalGastos || 0,
       diferencia: resumenVentas.diferencia,
     })
   }
