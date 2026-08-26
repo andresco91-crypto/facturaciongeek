@@ -11,6 +11,7 @@ import {
   StickyNote,
   FileSpreadsheet,
   Download,
+  TrendingUp,
   Menu,
   LogOut,
   Users,
@@ -31,6 +32,7 @@ import HistorialVentas from './pages/HistorialVentas'
 import HistorialCompras from './pages/HistorialCompras'
 import Notas from './pages/Notas'
 import Exportar from './pages/Exportar'
+import SugerenciaCompra from './pages/SugerenciaCompra'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -39,6 +41,7 @@ const RUTAS_SOLO_ADMIN = [
   '/reportes',
   '/importar',
   '/exportar',
+  '/sugerencia-compra',
 ]
 
 const NAV_ITEMS = [
@@ -52,6 +55,7 @@ const NAV_ITEMS = [
   { to: '/notas', label: 'Notas', icon: StickyNote, admin: false },
   { to: '/importar', label: 'Importar Excel', icon: FileSpreadsheet, admin: true, accent: true },
   { to: '/exportar', label: 'Exportar datos', icon: Download, admin: true },
+  { to: '/sugerencia-compra', label: 'Sugerencia de compra', icon: TrendingUp, admin: true },
 ]
 
 function RutaProtegida({ children }) {
@@ -248,6 +252,14 @@ function AppLayout() {
               element={
                 <RutaProtegida>
                   <Exportar />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path="/sugerencia-compra"
+              element={
+                <RutaProtegida>
+                  <SugerenciaCompra />
                 </RutaProtegida>
               }
             />
