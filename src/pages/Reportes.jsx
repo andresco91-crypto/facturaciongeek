@@ -114,36 +114,36 @@ export default function Reportes() {
     <div className="p-6 max-w-4xl">
       <h1 className="text-2xl font-bold mb-4">Reportes</h1>
 
-      <div className="bg-white border border-gray-200 rounded p-4 mb-6 flex flex-wrap gap-4 items-end">
+      <div className="bg-card border border-line rounded p-4 mb-6 flex flex-wrap gap-4 items-end">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+          <label className="block text-sm font-medium text-slate-200 mb-1">Desde</label>
           <input
             type="date"
             value={desde}
             onChange={(e) => setDesde(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2"
+            className="border border-line rounded-lg px-3 py-2"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+          <label className="block text-sm font-medium text-slate-200 mb-1">Hasta</label>
           <input
             type="date"
             value={hasta}
             onChange={(e) => setHasta(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2"
+            className="border border-line rounded-lg px-3 py-2"
           />
         </div>
         <button
           onClick={generarReporte}
           disabled={cargando}
-          className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+          className="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark disabled:opacity-50"
         >
           {cargando ? 'Calculando...' : 'Generar reporte'}
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 mb-4 text-sm">
+        <div className="bg-red-950/40 border border-red-900 text-red-300 rounded p-3 mb-4 text-sm">
           {error}
         </div>
       )}
@@ -151,22 +151,22 @@ export default function Reportes() {
       {resultado && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div className="bg-white border border-gray-200 rounded p-4">
-              <p className="text-gray-500 text-sm">Ventas</p>
+            <div className="bg-card border border-line rounded p-4">
+              <p className="text-muted text-sm">Ventas</p>
               <p className="text-xl font-bold">${resultado.totalVentas.toLocaleString()}</p>
-              <p className="text-xs text-gray-400">{resultado.cantidadVentas} facturas</p>
+              <p className="text-xs text-muted">{resultado.cantidadVentas} facturas</p>
             </div>
-            <div className="bg-white border border-gray-200 rounded p-4">
-              <p className="text-gray-500 text-sm">Compras</p>
+            <div className="bg-card border border-line rounded p-4">
+              <p className="text-muted text-sm">Compras</p>
               <p className="text-xl font-bold">${resultado.totalCompras.toLocaleString()}</p>
-              <p className="text-xs text-gray-400">{resultado.cantidadCompras} facturas</p>
+              <p className="text-xs text-muted">{resultado.cantidadCompras} facturas</p>
             </div>
-            <div className="bg-white border border-gray-200 rounded p-4 col-span-2 md:col-span-2">
-              <p className="text-gray-500 text-sm">Ganancia estimada</p>
-              <p className="text-xl font-bold text-green-700">
+            <div className="bg-card border border-line rounded p-4 col-span-2 md:col-span-2">
+              <p className="text-muted text-sm">Ganancia estimada</p>
+              <p className="text-xl font-bold text-emerald-300">
                 ${resultado.gananciaEstimada.toLocaleString()}
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted">
                 Calculada con el costo promedio actual de cada producto (aproximado)
               </p>
             </div>
@@ -174,11 +174,11 @@ export default function Reportes() {
 
           <h2 className="text-lg font-semibold mb-2">Productos más vendidos</h2>
           {resultado.topProductos.length === 0 ? (
-            <p className="text-gray-400 text-sm">No hay ventas en este rango de fechas.</p>
+            <p className="text-muted text-sm">No hay ventas en este rango de fechas.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm border border-gray-200 bg-white">
-                <thead className="bg-gray-100">
+              <table className="w-full text-sm border border-line bg-card">
+                <thead className="bg-panel">
                   <tr>
                     <th className="p-2 text-left">#</th>
                     <th className="p-2 text-left">Producto</th>
@@ -191,16 +191,16 @@ export default function Reportes() {
                 <tbody>
                   {resultado.topProductos.map((p, idx) => (
                     <tr key={p.codigo} className="border-t">
-                      <td className="p-2 text-gray-400">{idx + 1}</td>
+                      <td className="p-2 text-muted">{idx + 1}</td>
                       <td className="p-2">{p.nombre}</td>
                       <td className="p-2 text-right">{p.cantidad}</td>
-                      <td className="p-2 text-right text-gray-500">
+                      <td className="p-2 text-right text-muted">
                         ${p.valorCosto.toLocaleString()}
                       </td>
                       <td className="p-2 text-right">
                         ${p.valorVendido.toLocaleString()}
                       </td>
-                      <td className="p-2 text-right text-green-700 font-medium">
+                      <td className="p-2 text-right text-emerald-300 font-medium">
                         ${p.ganancia.toLocaleString()}
                       </td>
                     </tr>
