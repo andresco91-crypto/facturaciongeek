@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useProductos } from '../hooks/useProductos'
+import TicketVenta from '../components/TicketVenta'
 
 const METODOS_PAGO = [
   { id: 'efectivo', label: 'Efectivo' },
@@ -22,6 +23,7 @@ export default function Ventas() {
   const [pagos, setPagos] = useState([{ metodo: 'efectivo', monto: '' }])
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
+  const [ultimaVenta, setUltimaVenta] = useState(null)
 
   const resultados = buscar(textoBusqueda)
 
@@ -66,8 +68,6 @@ export default function Ventas() {
     0
   )
 
-  // Con un solo método de pago, el monto siempre es el total (no hay que escribirlo).
-  // Con varios métodos, cada uno se especifica manualmente para poder dividir el pago.
   const pagoUnico = pagos.length === 1
 
   const totalPagos = pagoUnico
@@ -87,8 +87,7 @@ export default function Ventas() {
 
   function quitarPago(index) {
     if (pagos.length === 1) return
-    const restantes = pagos.filter((_, i) => i !== index)
-    setPagos(restantes)
+    setPagos(pagos.filter((_, i) => i !== index))
   }
 
   async function guardarVenta() {
@@ -120,21 +119,32 @@ export default function Ventas() {
             .filter((p) => Number(p.monto) > 0)
             .map((p) => ({ metodo: p.metodo, monto: Number(p.monto) }))
 
+      const itemsFinales = items.map((i) => ({
+        codigo: i.codigo,
+        nombre: i.nombre,
+        cantidad: Number(i.cantidad) || 0,
+        precioUnitario: Number(i.precioUnitario) || 0,
+        tipoPrecio: i.tipoPrecio,
+      }))
+
       const ventaRef = doc(collection(db, 'ventas'))
       batch.set(ventaRef, {
         fecha: serverTimestamp(),
-        items: items.map((i) => ({
-          codigo: i.codigo,
-          nombre: i.nombre,
-          cantidad: Number(i.cantidad) || 0,
-          precioUnitario: Number(i.precioUnitario) || 0,
-          tipoPrecio: i.tipoPrecio,
-        })),
+        items: itemsFinales,
         pagos: pagosFinales,
         total,
       })
 
       await batch.commit()
+
+      // Guardamos los datos para el ticket (con fecha local, ya que serverTimestamp
+      // no está disponible de inmediato en el cliente)
+      setUltimaVenta({
+        fecha: new Date(),
+        items: itemsFinales,
+        pagos: pagosFinales,
+        total,
+      })
 
       setMensaje({ tipo: 'exito', texto: `Venta registrada por $${total.toLocaleString()}.` })
       setItems([])
@@ -145,6 +155,10 @@ export default function Ventas() {
     } finally {
       setGuardando(false)
     }
+  }
+
+  function imprimirTicket() {
+    window.print()
   }
 
   return (
@@ -332,6 +346,14 @@ export default function Ventas() {
           }`}
         >
           {mensaje.texto}
+          {mensaje.tipo === 'exito' && ultimaVenta && (
+            <button
+              onClick={imprimirTicket}
+              className="ml-3 underline font-medium hover:text-green-900"
+            >
+              Imprimir ticket
+            </button>
+          )}
         </div>
       )}
 
@@ -342,6 +364,8 @@ export default function Ventas() {
       >
         {guardando ? 'Guardando...' : 'Registrar venta'}
       </button>
+
+      <TicketVenta venta={ultimaVenta} />
     </div>
   )
 }
