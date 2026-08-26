@@ -10,6 +10,7 @@ import Reportes from './pages/Reportes'
 import Inventario from './pages/Inventario'
 import HistorialVentas from './pages/HistorialVentas'
 import HistorialCompras from './pages/HistorialCompras'
+import Notas from './pages/Notas'
 
 function AppLayout() {
   const { cerrarSesion } = useAuth()
@@ -24,6 +25,7 @@ function AppLayout() {
         <Link to="/historial-compras">Historial compras</Link>
         <Link to="/caja">Caja</Link>
         <Link to="/reportes">Reportes</Link>
+        <Link to="/notas">Notas</Link>
         <Link to="/importar" className="text-yellow-400">Importar Excel</Link>
         <button
           onClick={cerrarSesion}
@@ -41,6 +43,7 @@ function AppLayout() {
         <Route path="/historial-compras" element={<HistorialCompras />} />
         <Route path="/caja" element={<Caja />} />
         <Route path="/reportes" element={<Reportes />} />
+        <Route path="/notas" element={<Notas />} />
         <Route path="/importar" element={<ImportarExcel />} />
       </Routes>
     </div>
