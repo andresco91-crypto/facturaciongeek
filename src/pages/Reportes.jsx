@@ -34,7 +34,7 @@ export default function Reportes() {
         where('fecha', '<=', fechaHasta)
       )
       const snapVentas = await getDocs(qVentas)
-      const ventas = snapVentas.docs.map((d) => d.data())
+      const ventas = snapVentas.docs.map((d) => d.data()).filter((v) => v.anulada !== true)
 
       const qCompras = query(
         collection(db, 'compras'),
