@@ -17,7 +17,7 @@ const METODOS_PAGO = [
 ]
 
 export default function Ventas() {
-  const { buscar, recargar } = useProductos()
+  const { productos, buscar, recargar } = useProductos()
   const [textoBusqueda, setTextoBusqueda] = useState('')
   const [items, setItems] = useState([])
   const [pagos, setPagos] = useState([{ metodo: 'efectivo', monto: '' }])
@@ -28,23 +28,48 @@ export default function Ventas() {
   const resultados = buscar(textoBusqueda)
 
   function agregarProducto(producto) {
-    if (items.some((i) => i.codigo === producto.codigo)) {
-      setTextoBusqueda('')
+    setItems((prev) => {
+      if (prev.some((i) => i.codigo === producto.codigo)) {
+        return prev
+      }
+      return [
+        ...prev,
+        {
+          codigo: producto.codigo,
+          nombre: producto.nombre,
+          cantidad: 1,
+          tipoPrecio: 'publico',
+          precioUnitario: producto.precioPublico || 0,
+          precioPublico: producto.precioPublico || 0,
+          precioMayorista: producto.precioMayorista || 0,
+        },
+      ]
+    })
+    setTextoBusqueda('')
+  }
+
+  // Al presionar Enter: si el texto coincide exactamente con un código
+  // (ideal para lectores de código de barras o escritura manual del código),
+  // o si la búsqueda deja un único resultado, se agrega automáticamente.
+  function handleKeyDown(e) {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+
+    const texto = textoBusqueda.trim().toLowerCase()
+    if (!texto) return
+
+    const coincidenciaExacta = productos.find(
+      (p) => p.codigo?.toLowerCase() === texto
+    )
+
+    if (coincidenciaExacta) {
+      agregarProducto(coincidenciaExacta)
       return
     }
-    setItems([
-      ...items,
-      {
-        codigo: producto.codigo,
-        nombre: producto.nombre,
-        cantidad: 1,
-        tipoPrecio: 'publico',
-        precioUnitario: producto.precioPublico || 0,
-        precioPublico: producto.precioPublico || 0,
-        precioMayorista: producto.precioMayorista || 0,
-      },
-    ])
-    setTextoBusqueda('')
+
+    if (resultados.length === 1) {
+      agregarProducto(resultados[0])
+    }
   }
 
   function actualizarItem(index, campo, valor) {
@@ -137,8 +162,6 @@ export default function Ventas() {
 
       await batch.commit()
 
-      // Guardamos los datos para el ticket (con fecha local, ya que serverTimestamp
-      // no está disponible de inmediato en el cliente)
       setUltimaVenta({
         fecha: new Date(),
         items: itemsFinales,
@@ -170,8 +193,10 @@ export default function Ventas() {
           type="text"
           value={textoBusqueda}
           onChange={(e) => setTextoBusqueda(e.target.value)}
-          placeholder="Buscar producto por nombre..."
+          onKeyDown={handleKeyDown}
+          placeholder="Buscar por nombre o escribir/escanear código + Enter..."
           className="w-full border border-gray-300 rounded px-3 py-2"
+          autoFocus
         />
         {textoBusqueda && (
           <div className="absolute z-10 bg-white border border-gray-200 rounded shadow-md w-full mt-1 max-h-64 overflow-y-auto">
