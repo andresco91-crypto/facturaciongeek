@@ -5,6 +5,7 @@ import ImportarExcel from './pages/ImportarExcel'
 import Compras from './pages/Compras'
 import Ventas from './pages/Ventas'
 import Caja from './pages/Caja'
+import Reportes from './pages/Reportes'
 
 function Placeholder({ title }) {
   return (
@@ -40,7 +41,7 @@ function AppLayout() {
         <Route path="/compras" element={<Compras />} />
         <Route path="/inventario" element={<Placeholder title="Inventario" />} />
         <Route path="/caja" element={<Caja />} />
-        <Route path="/reportes" element={<Placeholder title="Reportes" />} />
+        <Route path="/reportes" element={<Reportes />} />
         <Route path="/importar" element={<ImportarExcel />} />
       </Routes>
     </div>
