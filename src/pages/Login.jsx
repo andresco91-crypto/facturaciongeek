@@ -22,14 +22,21 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-panel">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm"
+        className="bg-card p-8 rounded-xl shadow-xl border border-line w-full max-w-sm"
       >
-        <h1 className="text-2xl font-bold mb-6 text-center">FacturacionGeek</h1>
+        <div className="flex justify-center mb-6">
+          <div className="w-12 h-12 rounded-xl bg-brand flex items-center justify-center font-display font-bold text-white text-2xl">
+            G
+          </div>
+        </div>
+        <h1 className="text-2xl font-display font-bold mb-6 text-center">
+          GEEK<span className="text-brand-light">STORE</span>
+        </h1>
 
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-slate-200 mb-1">
           Correo
         </label>
         <input
@@ -37,10 +44,10 @@ export default function Login() {
           value={correo}
           onChange={(e) => setCorreo(e.target.value)}
           required
-          className="w-full border border-gray-300 rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          className="w-full border border-line rounded-lg px-3 py-2 mb-4 bg-panel focus:outline-none focus:ring-2 focus:ring-brand"
         />
 
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-slate-200 mb-1">
           Contraseña
         </label>
         <input
@@ -48,17 +55,17 @@ export default function Login() {
           value={contrasena}
           onChange={(e) => setContrasena(e.target.value)}
           required
-          className="w-full border border-gray-300 rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          className="w-full border border-line rounded-lg px-3 py-2 mb-4 bg-panel focus:outline-none focus:ring-2 focus:ring-brand"
         />
 
         {error && (
-          <p className="text-red-600 text-sm mb-4">{error}</p>
+          <p className="text-red-400 text-sm mb-4">{error}</p>
         )}
 
         <button
           type="submit"
           disabled={cargando}
-          className="w-full bg-gray-900 text-white py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+          className="w-full bg-brand text-white py-2.5 rounded-lg hover:bg-brand-dark font-medium disabled:opacity-50"
         >
           {cargando ? 'Ingresando...' : 'Ingresar'}
         </button>
