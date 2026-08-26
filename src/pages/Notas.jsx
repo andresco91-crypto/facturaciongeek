@@ -99,40 +99,40 @@ export default function Notas() {
   return (
     <div className="p-6 max-w-2xl">
       <h1 className="text-2xl font-bold mb-2">Notas</h1>
-      <p className="text-gray-500 text-sm mb-4">
+      <p className="text-muted text-sm mb-4">
         Espacio de escritura libre para faltantes, mercancía en préstamo, o cualquier
         pendiente que quieras dejar anotado.
       </p>
 
-      <div className="bg-white border border-gray-200 rounded p-4 mb-6">
+      <div className="bg-card border border-line rounded p-4 mb-6">
         <textarea
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ej: Prestaron un cargador USB-C a Juan, devuelve el viernes..."
           rows={3}
-          className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+          className="w-full border border-line rounded-lg px-3 py-2 mb-2"
         />
         <button
           onClick={agregarNota}
           disabled={guardando || !texto.trim()}
-          className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+          className="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark disabled:opacity-50"
         >
           {guardando ? 'Guardando...' : 'Agregar nota'}
         </button>
-        <span className="text-xs text-gray-400 ml-2">Ctrl+Enter también funciona</span>
+        <span className="text-xs text-muted ml-2">Ctrl+Enter también funciona</span>
       </div>
 
       {cargando ? (
-        <p className="text-gray-400">Cargando notas...</p>
+        <p className="text-muted">Cargando notas...</p>
       ) : notas.length === 0 ? (
-        <p className="text-gray-400">No hay notas todavía.</p>
+        <p className="text-muted">No hay notas todavía.</p>
       ) : (
         <div className="space-y-2">
           {notas.map((nota) => (
             <div
               key={nota.id}
-              className="bg-white border border-gray-200 rounded p-3"
+              className="bg-card border border-line rounded p-3"
             >
               {editandoId === nota.id ? (
                 <div>
@@ -140,20 +140,20 @@ export default function Notas() {
                     value={textoEdicion}
                     onChange={(e) => setTextoEdicion(e.target.value)}
                     rows={3}
-                    className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+                    className="w-full border border-line rounded-lg px-3 py-2 mb-2"
                     autoFocus
                   />
                   <div className="flex gap-3">
                     <button
                       onClick={() => guardarEdicion(nota.id)}
                       disabled={guardandoEdicion || !textoEdicion.trim()}
-                      className="text-green-700 text-sm font-medium hover:underline disabled:opacity-50"
+                      className="text-emerald-300 text-sm font-medium hover:underline disabled:opacity-50"
                     >
                       {guardandoEdicion ? 'Guardando...' : 'Guardar'}
                     </button>
                     <button
                       onClick={cancelarEdicion}
-                      className="text-gray-500 text-sm hover:underline"
+                      className="text-muted text-sm hover:underline"
                     >
                       Cancelar
                     </button>
@@ -163,7 +163,7 @@ export default function Notas() {
                 <div className="flex justify-between items-start gap-3">
                   <div>
                     <p className="whitespace-pre-wrap">{nota.texto}</p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-muted mt-1">
                       {formatearFecha(nota.fecha)}
                       {nota.fechaEdicion && ' (editada)'}
                     </p>
@@ -171,7 +171,7 @@ export default function Notas() {
                   <div className="flex gap-3 whitespace-nowrap">
                     <button
                       onClick={() => empezarEdicion(nota)}
-                      className="text-blue-600 text-xs hover:underline"
+                      className="text-brand-light text-xs hover:underline"
                     >
                       Editar
                     </button>
