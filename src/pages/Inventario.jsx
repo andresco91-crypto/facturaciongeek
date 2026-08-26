@@ -68,15 +68,15 @@ export default function Inventario() {
         value={textoBusqueda}
         onChange={(e) => setTextoBusqueda(e.target.value)}
         placeholder="Buscar por nombre o código..."
-        className="w-full max-w-md border border-gray-300 rounded px-3 py-2 mb-4"
+        className="w-full max-w-md border border-line rounded-lg px-3 py-2 mb-4"
       />
 
       {mensaje && (
         <div
           className={`p-3 rounded mb-4 text-sm max-w-md ${
             mensaje.tipo === 'exito'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
+              ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-900'
+              : 'bg-red-950/40 text-red-300 border border-red-900'
           }`}
         >
           {mensaje.texto}
@@ -84,11 +84,11 @@ export default function Inventario() {
       )}
 
       {cargando ? (
-        <p className="text-gray-400">Cargando productos...</p>
+        <p className="text-muted">Cargando productos...</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-gray-200 bg-white">
-            <thead className="bg-gray-100">
+          <table className="w-full text-sm border border-line bg-card">
+            <thead className="bg-panel">
               <tr>
                 <th className="p-2 text-left">Código</th>
                 <th className="p-2 text-left">Nombre</th>
@@ -103,9 +103,9 @@ export default function Inventario() {
             <tbody>
               {listaFiltrada.map((p) => (
                 <tr key={p.codigo} className="border-t">
-                  <td className="p-2 text-gray-400">{p.codigo}</td>
+                  <td className="p-2 text-muted">{p.codigo}</td>
                   <td className="p-2">{p.nombre}</td>
-                  <td className="p-2 text-right text-gray-500">
+                  <td className="p-2 text-right text-muted">
                     ${Number(p.costoPromedio || 0).toLocaleString()}
                   </td>
 
@@ -118,7 +118,7 @@ export default function Inventario() {
                           onChange={(e) =>
                             setValores({ ...valores, precioPublico: e.target.value })
                           }
-                          className="w-24 border border-gray-300 rounded px-2 py-1 text-right"
+                          className="w-24 border border-line rounded-lg px-2 py-1 text-right"
                         />
                       </td>
                       <td className="p-2 text-right">
@@ -128,7 +128,7 @@ export default function Inventario() {
                           onChange={(e) =>
                             setValores({ ...valores, precioMayorista: e.target.value })
                           }
-                          className="w-24 border border-gray-300 rounded px-2 py-1 text-right"
+                          className="w-24 border border-line rounded-lg px-2 py-1 text-right"
                         />
                       </td>
                       <td className="p-2 text-right">
@@ -138,7 +138,7 @@ export default function Inventario() {
                           onChange={(e) =>
                             setValores({ ...valores, stock: e.target.value })
                           }
-                          className="w-20 border border-gray-300 rounded px-2 py-1 text-right"
+                          className="w-20 border border-line rounded-lg px-2 py-1 text-right"
                         />
                       </td>
                       <td className="p-2">
@@ -149,20 +149,20 @@ export default function Inventario() {
                             setValores({ ...valores, garantia: e.target.value })
                           }
                           placeholder="ej: 3 meses"
-                          className="w-28 border border-gray-300 rounded px-2 py-1"
+                          className="w-28 border border-line rounded-md px-2 py-1 bg-panel"
                         />
                       </td>
                       <td className="p-2 whitespace-nowrap">
                         <button
                           onClick={() => guardarEdicion(p.codigo)}
                           disabled={guardando}
-                          className="text-green-700 text-xs font-medium hover:underline mr-2"
+                          className="text-emerald-300 text-xs font-medium hover:underline mr-2"
                         >
                           Guardar
                         </button>
                         <button
                           onClick={cancelarEdicion}
-                          className="text-gray-500 text-xs hover:underline"
+                          className="text-muted text-xs hover:underline"
                         >
                           Cancelar
                         </button>
@@ -177,11 +177,11 @@ export default function Inventario() {
                         ${Number(p.precioMayorista || 0).toLocaleString()}
                       </td>
                       <td className="p-2 text-right">{p.stock}</td>
-                      <td className="p-2 text-gray-500">{p.garantia || '—'}</td>
+                      <td className="p-2 text-muted">{p.garantia || '—'}</td>
                       <td className="p-2">
                         <button
                           onClick={() => empezarEdicion(p)}
-                          className="text-blue-600 text-xs hover:underline"
+                          className="text-brand-light text-xs hover:underline"
                         >
                           Editar
                         </button>
@@ -194,7 +194,7 @@ export default function Inventario() {
           </table>
 
           {listaFiltrada.length === 0 && (
-            <p className="text-gray-400 mt-4">No se encontraron productos.</p>
+            <p className="text-muted mt-4">No se encontraron productos.</p>
           )}
         </div>
       )}
