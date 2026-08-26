@@ -161,23 +161,23 @@ export default function Compras() {
           value={textoBusqueda}
           onChange={(e) => setTextoBusqueda(e.target.value)}
           placeholder="Buscar producto por nombre..."
-          className="w-full border border-gray-300 rounded px-3 py-2"
+          className="w-full border border-line rounded-lg px-3 py-2"
         />
         {textoBusqueda && (
-          <div className="absolute z-10 bg-white border border-gray-200 rounded shadow-md w-full mt-1 max-h-64 overflow-y-auto">
+          <div className="absolute z-10 bg-card border border-line rounded shadow-md w-full mt-1 max-h-64 overflow-y-auto">
             {resultados.map((p) => (
               <button
                 key={p.id}
                 onClick={() => agregarProductoExistente(p)}
-                className="block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                className="block w-full text-left px-3 py-2 hover:bg-panel text-sm"
               >
                 <span className="font-medium">{p.nombre}</span>{' '}
-                <span className="text-gray-400">({p.codigo})</span> — stock actual: {p.stock}
+                <span className="text-muted">({p.codigo})</span> — stock actual: {p.stock}
               </button>
             ))}
             <button
               onClick={agregarProductoNuevo}
-              className="block w-full text-left px-3 py-2 hover:bg-yellow-50 text-sm text-yellow-700 border-t"
+              className="block w-full text-left px-3 py-2 hover:bg-amber-950/40 text-sm text-amber-400 border-t"
             >
               + Crear producto nuevo: "{textoBusqueda}"
             </button>
@@ -187,8 +187,8 @@ export default function Compras() {
 
       {items.length > 0 && (
         <div className="overflow-x-auto mb-4">
-          <table className="w-full text-sm border border-gray-200">
-            <thead className="bg-gray-100">
+          <table className="w-full text-sm border border-line">
+            <thead className="bg-panel">
               <tr>
                 <th className="p-2 text-left">Producto</th>
                 <th className="p-2 text-right">Cantidad</th>
@@ -203,7 +203,7 @@ export default function Compras() {
                   <td className="p-2">
                     {item.nombre}
                     {item.esNuevo && (
-                      <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-1 rounded">
+                      <span className="ml-2 text-xs bg-amber-950/60 text-amber-400 px-1 rounded">
                         nuevo
                       </span>
                     )}
@@ -214,7 +214,7 @@ export default function Compras() {
                       min="1"
                       value={item.cantidad}
                       onChange={(e) => actualizarItem(idx, 'cantidad', e.target.value)}
-                      className="w-20 border border-gray-300 rounded px-2 py-1 text-right"
+                      className="w-20 border border-line rounded-lg px-2 py-1 text-right"
                     />
                   </td>
                   <td className="p-2 text-right">
@@ -223,7 +223,7 @@ export default function Compras() {
                       min="0"
                       value={item.costoUnitario}
                       onChange={(e) => actualizarItem(idx, 'costoUnitario', e.target.value)}
-                      className="w-28 border border-gray-300 rounded px-2 py-1 text-right"
+                      className="w-28 border border-line rounded-lg px-2 py-1 text-right"
                     />
                   </td>
                   <td className="p-2 text-right">
@@ -252,8 +252,8 @@ export default function Compras() {
         <div
           className={`p-3 rounded mb-4 text-sm ${
             mensaje.tipo === 'exito'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
+              ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-900'
+              : 'bg-red-950/40 text-red-300 border border-red-900'
           }`}
         >
           {mensaje.texto}
@@ -263,7 +263,7 @@ export default function Compras() {
       <button
         onClick={guardarCompra}
         disabled={items.length === 0 || guardando}
-        className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+        className="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark disabled:opacity-50"
       >
         {guardando ? 'Guardando...' : 'Guardar compra'}
       </button>
