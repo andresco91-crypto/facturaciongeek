@@ -210,7 +210,7 @@ export default function Ventas() {
       <h1 className="text-2xl font-bold mb-4">Punto de venta</h1>
 
       {!cargandoTurno && !turno && (
-        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded p-4 mb-4">
+        <div className="bg-amber-950/40 border border-amber-800 text-amber-300 rounded p-4 mb-4">
           <p className="font-medium">No hay un turno de caja abierto.</p>
           <p className="text-sm mt-1">
             Ve al módulo <strong>Caja</strong> y abre un turno antes de registrar ventas.
@@ -225,26 +225,26 @@ export default function Ventas() {
           onChange={(e) => setTextoBusqueda(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Buscar por nombre o escribir/escanear código + Enter..."
-          className="w-full border border-gray-300 rounded px-3 py-2"
+          className="w-full border border-line rounded-lg px-3 py-2"
           autoFocus
           disabled={!turno}
         />
         {textoBusqueda && (
-          <div className="absolute z-10 bg-white border border-gray-200 rounded shadow-md w-full mt-1 max-h-64 overflow-y-auto">
+          <div className="absolute z-10 bg-card border border-line rounded shadow-md w-full mt-1 max-h-64 overflow-y-auto">
             {resultados.map((p) => (
               <button
                 key={p.id}
                 onClick={() => agregarProducto(p)}
-                className="block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                className="block w-full text-left px-3 py-2 hover:bg-panel text-sm"
               >
                 <span className="font-medium">{p.nombre}</span>{' '}
-                <span className="text-gray-400">
+                <span className="text-muted">
                   (stock: {p.stock} · público ${Number(p.precioPublico).toLocaleString()})
                 </span>
               </button>
             ))}
             {resultados.length === 0 && (
-              <p className="px-3 py-2 text-sm text-gray-400">Sin resultados.</p>
+              <p className="px-3 py-2 text-sm text-muted">Sin resultados.</p>
             )}
           </div>
         )}
@@ -252,8 +252,8 @@ export default function Ventas() {
 
       {items.length > 0 && (
         <div className="overflow-x-auto mb-4">
-          <table className="w-full text-sm border border-gray-200">
-            <thead className="bg-gray-100">
+          <table className="w-full text-sm border border-line">
+            <thead className="bg-panel">
               <tr>
                 <th className="p-2 text-left">Producto</th>
                 <th className="p-2 text-right">Cant.</th>
@@ -273,14 +273,14 @@ export default function Ventas() {
                       min="1"
                       value={item.cantidad}
                       onChange={(e) => actualizarItem(idx, 'cantidad', e.target.value)}
-                      className="w-16 border border-gray-300 rounded px-2 py-1 text-right"
+                      className="w-16 border border-line rounded-lg px-2 py-1 text-right"
                     />
                   </td>
                   <td className="p-2">
                     <select
                       value={item.tipoPrecio}
                       onChange={(e) => actualizarItem(idx, 'tipoPrecio', e.target.value)}
-                      className="border border-gray-300 rounded px-2 py-1 text-xs"
+                      className="border border-line rounded-lg px-2 py-1 text-xs"
                     >
                       <option value="publico">Público</option>
                       <option value="mayorista">Mayorista</option>
@@ -292,7 +292,7 @@ export default function Ventas() {
                       min="0"
                       value={item.precioUnitario}
                       onChange={(e) => actualizarItem(idx, 'precioUnitario', e.target.value)}
-                      className="w-24 border border-gray-300 rounded px-2 py-1 text-right"
+                      className="w-24 border border-line rounded-lg px-2 py-1 text-right"
                     />
                   </td>
                   <td className="p-2 text-right">
@@ -318,7 +318,7 @@ export default function Ventas() {
       )}
 
       {items.length > 0 && (
-        <div className="mb-4 bg-white border border-gray-200 rounded p-4">
+        <div className="mb-4 bg-card border border-line rounded p-4">
           <p className="font-medium mb-2">Pago</p>
 
           {pagoUnico ? (
@@ -326,7 +326,7 @@ export default function Ventas() {
               <select
                 value={pagos[0].metodo}
                 onChange={(e) => actualizarPago(0, 'metodo', e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                className="border border-line rounded-lg px-2 py-1 text-sm"
               >
                 {METODOS_PAGO.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -334,7 +334,7 @@ export default function Ventas() {
                   </option>
                 ))}
               </select>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-slate-300">
                 Monto: <strong>${total.toLocaleString()}</strong> (total de la venta)
               </span>
             </div>
@@ -344,7 +344,7 @@ export default function Ventas() {
                 <select
                   value={pago.metodo}
                   onChange={(e) => actualizarPago(idx, 'metodo', e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                  className="border border-line rounded-lg px-2 py-1 text-sm"
                 >
                   {METODOS_PAGO.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -358,7 +358,7 @@ export default function Ventas() {
                   placeholder="Monto"
                   value={pago.monto}
                   onChange={(e) => actualizarPago(idx, 'monto', e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm w-32"
+                  className="border border-line rounded-lg px-2 py-1 text-sm w-32"
                 />
                 <button
                   onClick={() => quitarPago(idx)}
@@ -372,7 +372,7 @@ export default function Ventas() {
 
           <button
             onClick={agregarMetodoPago}
-            className="text-sm text-gray-600 hover:underline"
+            className="text-sm text-slate-300 hover:underline"
           >
             + Dividir pago en otro método
           </button>
@@ -380,7 +380,7 @@ export default function Ventas() {
           {!pagoUnico && (
             <p
               className={`mt-2 text-sm font-medium ${
-                Math.abs(diferenciaPago) < 0.5 ? 'text-green-600' : 'text-red-600'
+                Math.abs(diferenciaPago) < 0.5 ? 'text-green-600' : 'text-red-400'
               }`}
             >
               {Math.abs(diferenciaPago) < 0.5
@@ -397,8 +397,8 @@ export default function Ventas() {
         <div
           className={`p-3 rounded mb-4 text-sm ${
             mensaje.tipo === 'exito'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
+              ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-900'
+              : 'bg-red-950/40 text-red-300 border border-red-900'
           }`}
         >
           {mensaje.texto}
@@ -416,7 +416,7 @@ export default function Ventas() {
       <button
         onClick={guardarVenta}
         disabled={items.length === 0 || guardando || !turno}
-        className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-50"
+        className="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark disabled:opacity-50"
       >
         {guardando ? 'Guardando...' : 'Registrar venta'}
       </button>
