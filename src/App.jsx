@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import Login from './pages/Login'
 import ImportarExcel from './pages/ImportarExcel'
 import Compras from './pages/Compras'
+import Ventas from './pages/Ventas'
 
 function Placeholder({ title }) {
   return (
@@ -34,7 +35,7 @@ function AppLayout() {
       </nav>
 
       <Routes>
-        <Route path="/" element={<Placeholder title="Punto de Venta" />} />
+        <Route path="/" element={<Ventas />} />
         <Route path="/compras" element={<Compras />} />
         <Route path="/inventario" element={<Placeholder title="Inventario" />} />
         <Route path="/caja" element={<Placeholder title="Caja" />} />
