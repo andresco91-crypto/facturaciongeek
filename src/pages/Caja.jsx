@@ -4,9 +4,10 @@ import { useGastos } from '../hooks/useGastos'
 
 export default function Caja() {
   const { turno, cargando, abrirTurno, cerrarTurno, obtenerVentasDelTurno } = useTurno()
-  const { obtenerGastosDelTurno } = useGastos()
+  const { registrarGasto } = useGastos()
 
   const [montoInicial, setMontoInicial] = useState('')
+  const [montoJornal, setMontoJornal] = useState('')
   const [montoFinalEfectivo, setMontoFinalEfectivo] = useState('')
   const [resumen, setResumen] = useState(null)
   const [cargandoResumen, setCargandoResumen] = useState(false)
@@ -24,10 +25,7 @@ export default function Caja() {
 
   async function cargarResumen() {
     setCargandoResumen(true)
-    const [ventas, gastos] = await Promise.all([
-      obtenerVentasDelTurno(turno.id),
-      obtenerGastosDelTurno(turno.id),
-    ])
+    const ventas = await obtenerVentasDelTurno(turno.id)
 
     let efectivo = 0
     let tarjeta = 0
@@ -41,15 +39,12 @@ export default function Caja() {
       }
     }
 
-    const totalGastos = gastos.reduce((acc, g) => acc + Number(g.monto || 0), 0)
-
     setResumen({
       cantidadVentas: ventas.length,
       efectivo,
       tarjeta,
       transferencia,
       totalVentas: efectivo + tarjeta + transferencia,
-      totalGastos,
     })
     setCargandoResumen(false)
   }
@@ -73,20 +68,25 @@ export default function Caja() {
     setProcesando(true)
     setMensaje(null)
 
-    // El efectivo esperado ahora descuenta los cobros de jornal (gastos) del turno
-    const efectivoEsperado =
-      Number(turno.montoInicial) + resumen.efectivo - resumen.totalGastos
+    const jornal = Number(montoJornal) || 0
+    const efectivoEsperado = Number(turno.montoInicial) + resumen.efectivo - jornal
     const diferencia = Number(montoFinalEfectivo || 0) - efectivoEsperado
 
     try {
+      // Si se ingresó un cobro de jornal, se registra como gasto ligado a este turno
+      if (jornal > 0) {
+        await registrarGasto(turno.id, jornal, 'Cobro de jornal')
+      }
+
       await cerrarTurno(turno.id, montoFinalEfectivo, {
         efectivo: resumen.efectivo,
         tarjeta: resumen.tarjeta,
         transferencia: resumen.transferencia,
-        totalGastos: resumen.totalGastos,
+        totalGastos: jornal,
         diferencia,
       })
       setMontoFinalEfectivo('')
+      setMontoJornal('')
       setMensaje({
         tipo: 'exito',
         texto:
@@ -102,6 +102,11 @@ export default function Caja() {
       setProcesando(false)
     }
   }
+
+  const jornalPreview = Number(montoJornal) || 0
+  const efectivoEsperadoPreview = resumen
+    ? Number(turno?.montoInicial || 0) + resumen.efectivo - jornalPreview
+    : 0
 
   if (cargando) {
     return <div className="p-6 text-gray-500">Cargando...</div>
@@ -182,32 +187,35 @@ export default function Caja() {
                   <p className="font-semibold">${resumen.totalVentas.toLocaleString()}</p>
                 </div>
               </div>
-
-              {resumen.totalGastos > 0 && (
-                <div className="bg-orange-50 border border-orange-200 rounded p-3 text-sm mb-2">
-                  <p className="text-orange-700">
-                    Gastos del turno (cobro de jornal): −${resumen.totalGastos.toLocaleString()}
-                  </p>
-                </div>
-              )}
-
-              <p className="text-sm text-gray-600">
-                Efectivo esperado en caja: base (${Number(turno.montoInicial).toLocaleString()}) +
-                ventas en efectivo (${resumen.efectivo.toLocaleString()}) − gastos (${resumen.totalGastos.toLocaleString()}) ={' '}
-                <strong>
-                  $
-                  {(
-                    Number(turno.montoInicial) +
-                    resumen.efectivo -
-                    resumen.totalGastos
-                  ).toLocaleString()}
-                </strong>
-              </p>
             </div>
           )}
 
           <div className="border-t pt-4">
             <p className="font-medium mb-2">Cerrar turno</p>
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Cobro de jornal del trabajador (opcional)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={montoJornal}
+              onChange={(e) => setMontoJornal(e.target.value)}
+              placeholder="0"
+              className="border border-gray-300 rounded px-3 py-2 w-48 mb-3"
+            />
+            <p className="text-xs text-gray-500 mb-4">
+              Este valor se descuenta del efectivo esperado en caja.
+            </p>
+
+            {resumen && (
+              <p className="text-sm text-gray-600 mb-4">
+                Efectivo esperado: base (${Number(turno.montoInicial).toLocaleString()}) +
+                ventas en efectivo (${resumen.efectivo.toLocaleString()}) − jornal (${jornalPreview.toLocaleString()}) ={' '}
+                <strong>${efectivoEsperadoPreview.toLocaleString()}</strong>
+              </p>
+            )}
+
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Monto contado físicamente en caja (solo efectivo)
             </label>
