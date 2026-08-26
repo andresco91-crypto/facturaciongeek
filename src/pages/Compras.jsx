@@ -7,11 +7,12 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useProductos } from '../hooks/useProductos'
+import { useCompraDraft } from '../hooks/useCompraDraft'
 
 export default function Compras() {
   const { productos, buscar, recargar } = useProductos()
+  const { items, setItems } = useCompraDraft() // persiste aunque navegues a otro módulo
   const [textoBusqueda, setTextoBusqueda] = useState('')
-  const [items, setItems] = useState([])
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
 
@@ -91,7 +92,6 @@ export default function Compras() {
 
         const nuevoStock = stockActual + cantidad
 
-        // Costo promedio ponderado
         let nuevoCosto
         if (nuevoStock <= 0) {
           nuevoCosto = costoNuevo
@@ -121,7 +121,6 @@ export default function Compras() {
         }
       }
 
-      // Registro de la factura de compra
       const compraRef = doc(collection(db, 'compras'))
       batch.set(compraRef, {
         fecha: serverTimestamp(),
@@ -137,7 +136,7 @@ export default function Compras() {
       await batch.commit()
 
       setMensaje({ tipo: 'exito', texto: `Compra registrada: ${items.length} producto(s) actualizados.` })
-      setItems([])
+      setItems([]) // limpia el borrador solo cuando la compra se guarda con éxito
       recargar()
     } catch (err) {
       setMensaje({ tipo: 'error', texto: 'Error al guardar la compra: ' + err.message })
@@ -148,7 +147,13 @@ export default function Compras() {
 
   return (
     <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-bold mb-4">Registrar factura de compra</h1>
+      <h1 className="text-2xl font-bold mb-2">Registrar factura de compra</h1>
+      {items.length > 0 && (
+        <p className="text-xs text-amber-600 mb-2">
+          Tienes una compra en progreso con {items.length} producto(s). Puedes navegar a
+          otros módulos sin perderla.
+        </p>
+      )}
 
       <div className="relative mb-4">
         <input
