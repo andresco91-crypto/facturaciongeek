@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useTurno } from '../hooks/useTurno'
+import { useGastos } from '../hooks/useGastos'
 
 export default function Caja() {
   const { turno, cargando, abrirTurno, cerrarTurno, obtenerVentasDelTurno } = useTurno()
+  const { obtenerGastosDelTurno } = useGastos()
+
   const [montoInicial, setMontoInicial] = useState('')
   const [montoFinalEfectivo, setMontoFinalEfectivo] = useState('')
   const [resumen, setResumen] = useState(null)
@@ -21,7 +24,10 @@ export default function Caja() {
 
   async function cargarResumen() {
     setCargandoResumen(true)
-    const ventas = await obtenerVentasDelTurno(turno.id)
+    const [ventas, gastos] = await Promise.all([
+      obtenerVentasDelTurno(turno.id),
+      obtenerGastosDelTurno(turno.id),
+    ])
 
     let efectivo = 0
     let tarjeta = 0
@@ -35,12 +41,15 @@ export default function Caja() {
       }
     }
 
+    const totalGastos = gastos.reduce((acc, g) => acc + Number(g.monto || 0), 0)
+
     setResumen({
       cantidadVentas: ventas.length,
       efectivo,
       tarjeta,
       transferencia,
       totalVentas: efectivo + tarjeta + transferencia,
+      totalGastos,
     })
     setCargandoResumen(false)
   }
@@ -64,7 +73,9 @@ export default function Caja() {
     setProcesando(true)
     setMensaje(null)
 
-    const efectivoEsperado = Number(turno.montoInicial) + resumen.efectivo
+    // El efectivo esperado ahora descuenta los cobros de jornal (gastos) del turno
+    const efectivoEsperado =
+      Number(turno.montoInicial) + resumen.efectivo - resumen.totalGastos
     const diferencia = Number(montoFinalEfectivo || 0) - efectivoEsperado
 
     try {
@@ -72,6 +83,7 @@ export default function Caja() {
         efectivo: resumen.efectivo,
         tarjeta: resumen.tarjeta,
         transferencia: resumen.transferencia,
+        totalGastos: resumen.totalGastos,
         diferencia,
       })
       setMontoFinalEfectivo('')
@@ -170,11 +182,25 @@ export default function Caja() {
                   <p className="font-semibold">${resumen.totalVentas.toLocaleString()}</p>
                 </div>
               </div>
+
+              {resumen.totalGastos > 0 && (
+                <div className="bg-orange-50 border border-orange-200 rounded p-3 text-sm mb-2">
+                  <p className="text-orange-700">
+                    Gastos del turno (cobro de jornal): −${resumen.totalGastos.toLocaleString()}
+                  </p>
+                </div>
+              )}
+
               <p className="text-sm text-gray-600">
                 Efectivo esperado en caja: base (${Number(turno.montoInicial).toLocaleString()}) +
-                ventas en efectivo (${resumen.efectivo.toLocaleString()}) ={' '}
+                ventas en efectivo (${resumen.efectivo.toLocaleString()}) − gastos (${resumen.totalGastos.toLocaleString()}) ={' '}
                 <strong>
-                  ${(Number(turno.montoInicial) + resumen.efectivo).toLocaleString()}
+                  $
+                  {(
+                    Number(turno.montoInicial) +
+                    resumen.efectivo -
+                    resumen.totalGastos
+                  ).toLocaleString()}
                 </strong>
               </p>
             </div>
