@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #ticket-imprimible,
+  #ticket-imprimible * {
+    visibility: visible;
+  }
+
+  #ticket-imprimible {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+}
