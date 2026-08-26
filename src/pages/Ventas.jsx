@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useProductos } from '../hooks/useProductos'
+import { useTurno } from '../hooks/useTurno'
 import TicketVenta from '../components/TicketVenta'
 
 const METODOS_PAGO = [
@@ -18,6 +19,7 @@ const METODOS_PAGO = [
 
 export default function Ventas() {
   const { productos, buscar, recargar } = useProductos()
+  const { turno, cargando: cargandoTurno } = useTurno()
   const [textoBusqueda, setTextoBusqueda] = useState('')
   const [items, setItems] = useState([])
   const [pagos, setPagos] = useState([{ metodo: 'efectivo', monto: '' }])
@@ -128,6 +130,13 @@ export default function Ventas() {
 
   async function guardarVenta() {
     if (items.length === 0) return
+    if (!turno) {
+      setMensaje({
+        tipo: 'error',
+        texto: 'No hay un turno de caja abierto. Ve a Caja y abre un turno antes de vender.',
+      })
+      return
+    }
     if (Math.abs(diferenciaPago) > 0.5) {
       setMensaje({
         tipo: 'error',
@@ -169,6 +178,7 @@ export default function Ventas() {
         items: itemsFinales,
         pagos: pagosFinales,
         total,
+        turnoId: turno.id,
       })
 
       await batch.commit()
@@ -199,6 +209,15 @@ export default function Ventas() {
     <div className="p-6 max-w-3xl">
       <h1 className="text-2xl font-bold mb-4">Punto de venta</h1>
 
+      {!cargandoTurno && !turno && (
+        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded p-4 mb-4">
+          <p className="font-medium">No hay un turno de caja abierto.</p>
+          <p className="text-sm mt-1">
+            Ve al módulo <strong>Caja</strong> y abre un turno antes de registrar ventas.
+          </p>
+        </div>
+      )}
+
       <div className="relative mb-4">
         <input
           type="text"
@@ -208,6 +227,7 @@ export default function Ventas() {
           placeholder="Buscar por nombre o escribir/escanear código + Enter..."
           className="w-full border border-gray-300 rounded px-3 py-2"
           autoFocus
+          disabled={!turno}
         />
         {textoBusqueda && (
           <div className="absolute z-10 bg-white border border-gray-200 rounded shadow-md w-full mt-1 max-h-64 overflow-y-auto">
@@ -395,7 +415,7 @@ export default function Ventas() {
 
       <button
         onClick={guardarVenta}
-        disabled={items.length === 0 || guardando}
+        disabled={items.length === 0 || guardando || !turno}
         className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-50"
       >
         {guardando ? 'Guardando...' : 'Registrar venta'}
