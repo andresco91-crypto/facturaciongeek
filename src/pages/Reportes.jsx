@@ -28,7 +28,6 @@ export default function Reportes() {
       const fechaDesde = Timestamp.fromDate(new Date(desde + 'T00:00:00'))
       const fechaHasta = Timestamp.fromDate(new Date(hasta + 'T23:59:59'))
 
-      // Ventas en el rango
       const qVentas = query(
         collection(db, 'ventas'),
         where('fecha', '>=', fechaDesde),
@@ -37,7 +36,6 @@ export default function Reportes() {
       const snapVentas = await getDocs(qVentas)
       const ventas = snapVentas.docs.map((d) => d.data())
 
-      // Compras en el rango
       const qCompras = query(
         collection(db, 'compras'),
         where('fecha', '>=', fechaDesde),
@@ -46,7 +44,7 @@ export default function Reportes() {
       const snapCompras = await getDocs(qCompras)
       const compras = snapCompras.docs.map((d) => d.data())
 
-      // Traemos el catálogo actual de productos para conocer el costo promedio de hoy
+      // Catálogo actual, para conocer el costo promedio de hoy de cada producto
       const snapProductos = await getDocs(collection(db, 'productos'))
       const costoPorCodigo = {}
       snapProductos.docs.forEach((d) => {
@@ -56,7 +54,7 @@ export default function Reportes() {
       let totalVentas = 0
       let totalCompras = 0
       let gananciaEstimada = 0
-      const conteoPorProducto = {} // codigo -> { nombre, cantidad, totalVendido }
+      const conteoPorProducto = {} // codigo -> { nombre, cantidad, valorCosto, valorVendido }
 
       for (const venta of ventas) {
         totalVentas += Number(venta.total) || 0
@@ -65,17 +63,22 @@ export default function Reportes() {
           const precioUnitario = Number(item.precioUnitario) || 0
           const costoUnitario = costoPorCodigo[item.codigo] ?? 0
 
-          gananciaEstimada += (precioUnitario - costoUnitario) * cantidad
+          const valorVendido = cantidad * precioUnitario
+          const valorCosto = cantidad * costoUnitario
+
+          gananciaEstimada += valorVendido - valorCosto
 
           if (!conteoPorProducto[item.codigo]) {
             conteoPorProducto[item.codigo] = {
               nombre: item.nombre,
               cantidad: 0,
-              totalVendido: 0,
+              valorCosto: 0,
+              valorVendido: 0,
             }
           }
           conteoPorProducto[item.codigo].cantidad += cantidad
-          conteoPorProducto[item.codigo].totalVendido += cantidad * precioUnitario
+          conteoPorProducto[item.codigo].valorCosto += valorCosto
+          conteoPorProducto[item.codigo].valorVendido += valorVendido
         }
       }
 
@@ -84,7 +87,11 @@ export default function Reportes() {
       }
 
       const topProductos = Object.entries(conteoPorProducto)
-        .map(([codigo, datos]) => ({ codigo, ...datos }))
+        .map(([codigo, datos]) => ({
+          codigo,
+          ...datos,
+          ganancia: datos.valorVendido - datos.valorCosto,
+        }))
         .sort((a, b) => b.cantidad - a.cantidad)
         .slice(0, 10)
 
@@ -104,7 +111,7 @@ export default function Reportes() {
   }
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6 max-w-4xl">
       <h1 className="text-2xl font-bold mb-4">Reportes</h1>
 
       <div className="bg-white border border-gray-200 rounded p-4 mb-6 flex flex-wrap gap-4 items-end">
@@ -169,26 +176,38 @@ export default function Reportes() {
           {resultado.topProductos.length === 0 ? (
             <p className="text-gray-400 text-sm">No hay ventas en este rango de fechas.</p>
           ) : (
-            <table className="w-full text-sm border border-gray-200 bg-white">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2 text-left">#</th>
-                  <th className="p-2 text-left">Producto</th>
-                  <th className="p-2 text-right">Unidades vendidas</th>
-                  <th className="p-2 text-right">Total vendido</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resultado.topProductos.map((p, idx) => (
-                  <tr key={p.codigo} className="border-t">
-                    <td className="p-2 text-gray-400">{idx + 1}</td>
-                    <td className="p-2">{p.nombre}</td>
-                    <td className="p-2 text-right">{p.cantidad}</td>
-                    <td className="p-2 text-right">${p.totalVendido.toLocaleString()}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-gray-200 bg-white">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-2 text-left">#</th>
+                    <th className="p-2 text-left">Producto</th>
+                    <th className="p-2 text-right">Unidades</th>
+                    <th className="p-2 text-right">Valor a costo</th>
+                    <th className="p-2 text-right">Valor vendido</th>
+                    <th className="p-2 text-right">Ganancia</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {resultado.topProductos.map((p, idx) => (
+                    <tr key={p.codigo} className="border-t">
+                      <td className="p-2 text-gray-400">{idx + 1}</td>
+                      <td className="p-2">{p.nombre}</td>
+                      <td className="p-2 text-right">{p.cantidad}</td>
+                      <td className="p-2 text-right text-gray-500">
+                        ${p.valorCosto.toLocaleString()}
+                      </td>
+                      <td className="p-2 text-right">
+                        ${p.valorVendido.toLocaleString()}
+                      </td>
+                      <td className="p-2 text-right text-green-700 font-medium">
+                        ${p.ganancia.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       )}
