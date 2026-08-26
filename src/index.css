@@ -1,6 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-ink text-slate-100 font-sans;
+  }
+  h1, h2, h3 {
+    @apply font-display;
+  }
+  input, select, textarea {
+    @apply bg-card text-slate-100 placeholder:text-muted;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0a0e1a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1f2a3d;
+    border-radius: 6px;
+  }
+}
 
 @media print {
   @page {
