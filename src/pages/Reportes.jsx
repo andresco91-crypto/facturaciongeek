@@ -42,7 +42,7 @@ export default function Reportes() {
         where('fecha', '<=', fechaHasta)
       )
       const snapCompras = await getDocs(qCompras)
-      const compras = snapCompras.docs.map((d) => d.data())
+      const compras = snapCompras.docs.map((d) => d.data()).filter((c) => c.anulada !== true)
 
       // Catálogo actual, para conocer el costo promedio de hoy de cada producto
       const snapProductos = await getDocs(collection(db, 'productos'))
