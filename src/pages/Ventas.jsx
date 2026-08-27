@@ -10,6 +10,7 @@ import { db } from '../lib/firebase'
 import { obtenerSiguienteNumeroFactura } from '../lib/contadores'
 import { useProductosCtx } from '../hooks/useProductosContext'
 import { useTurno } from '../hooks/useTurno'
+import { useRole } from '../hooks/useRole'
 import TicketVenta from '../components/TicketVenta'
 
 const METODOS_PAGO = [
@@ -24,6 +25,8 @@ const METODOS_PAGO = [
 export default function Ventas() {
   const { productos, buscar, aplicarAjustesLocales } = useProductosCtx()
   const { turno, cargando: cargandoTurno } = useTurno()
+  const { rol } = useRole()
+  const esAdmin = rol === 'admin'
   const [textoBusqueda, setTextoBusqueda] = useState('')
   const [items, setItems] = useState([])
   const [pagos, setPagos] = useState([{ metodo: 'efectivo', monto: '' }])
@@ -59,6 +62,7 @@ export default function Ventas() {
           precioUnitario: producto.precioPublico || 0,
           precioPublico: producto.precioPublico || 0,
           precioMayorista: producto.precioMayorista || 0,
+          costoPromedio: producto.costoPromedio || 0,
         },
       ]
     })
@@ -248,7 +252,8 @@ export default function Ventas() {
               >
                 <span className="font-medium">{p.nombre}</span>{' '}
                 <span className="text-muted">
-                  (stock: {p.stock} · público ${Number(p.precioPublico).toLocaleString()})
+                  (stock: {p.stock} · público ${Number(p.precioPublico).toLocaleString()}
+                  {esAdmin && ` · costo $${Number(p.costoPromedio || 0).toLocaleString()}`})
                 </span>
               </button>
             ))}
@@ -275,7 +280,14 @@ export default function Ventas() {
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.codigo} className="border-t">
-                  <td className="p-2">{item.nombre}</td>
+                  <td className="p-2">
+                    {item.nombre}
+                    {esAdmin && (
+                      <div className="text-xs text-muted/60">
+                        Costo: ${Number(item.costoPromedio || 0).toLocaleString()}
+                      </div>
+                    )}
+                  </td>
                   <td className="p-2 text-right">
                     <input
                       type="number"
