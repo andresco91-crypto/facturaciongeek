@@ -33,6 +33,10 @@
     margin: 0;
   }
 
+  html, body {
+    background: #fff !important;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -40,11 +44,13 @@
   #ticket-imprimible,
   #ticket-imprimible * {
     visibility: visible;
+    color: #000 !important;
   }
 
   #ticket-imprimible {
     position: absolute;
     left: 0;
     top: 0;
+    background: #fff !important;
   }
 }
