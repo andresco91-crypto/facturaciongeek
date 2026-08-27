@@ -3,7 +3,7 @@ import { useTurno } from '../hooks/useTurno'
 import { useGastos } from '../hooks/useGastos'
 
 export default function Caja() {
-  const { turno, cargando, abrirTurno, cerrarTurno, obtenerVentasDelTurno } = useTurno()
+  const { turno, cargando, abrirTurno, editarMontoInicial, cerrarTurno, obtenerVentasDelTurno } = useTurno()
   const { registrarGasto } = useGastos()
 
   const [montoInicial, setMontoInicial] = useState('')
@@ -13,6 +13,8 @@ export default function Caja() {
   const [cargandoResumen, setCargandoResumen] = useState(false)
   const [procesando, setProcesando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
+  const [editandoBase, setEditandoBase] = useState(false)
+  const [nuevaBase, setNuevaBase] = useState('')
 
   useEffect(() => {
     if (turno) {
@@ -30,12 +32,16 @@ export default function Caja() {
     let efectivo = 0
     let tarjeta = 0
     let transferencia = 0
+    let sistecredito = 0
+    let addi = 0
 
     for (const venta of ventas) {
       for (const pago of venta.pagos || []) {
         if (pago.metodo === 'efectivo') efectivo += pago.monto
         else if (pago.metodo === 'tarjeta') tarjeta += pago.monto
         else if (pago.metodo === 'transferencia') transferencia += pago.monto
+        else if (pago.metodo === 'sistecredito') sistecredito += pago.monto
+        else if (pago.metodo === 'addi') addi += pago.monto
       }
     }
 
@@ -44,9 +50,27 @@ export default function Caja() {
       efectivo,
       tarjeta,
       transferencia,
-      totalVentas: efectivo + tarjeta + transferencia,
+      sistecredito,
+      addi,
+      totalVentas: efectivo + tarjeta + transferencia + sistecredito + addi,
     })
     setCargandoResumen(false)
+  }
+
+  async function handleGuardarBase() {
+    if (!turno) return
+    setProcesando(true)
+    setMensaje(null)
+    try {
+      await editarMontoInicial(turno.id, nuevaBase, turno.montoInicial)
+      setEditandoBase(false)
+      setNuevaBase('')
+      setMensaje({ tipo: 'exito', texto: 'Base de caja actualizada.' })
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: 'Error al editar la base: ' + err.message })
+    } finally {
+      setProcesando(false)
+    }
   }
 
   async function handleAbrirTurno() {
@@ -82,6 +106,8 @@ export default function Caja() {
         efectivo: resumen.efectivo,
         tarjeta: resumen.tarjeta,
         transferencia: resumen.transferencia,
+        sistecredito: resumen.sistecredito,
+        addi: resumen.addi,
         totalGastos: jornal,
         diferencia,
       })
@@ -158,9 +184,76 @@ export default function Caja() {
 
       {turno && (
         <div className="bg-card border border-line rounded p-6">
-          <p className="text-sm text-muted mb-4">
-            Turno abierto con ${Number(turno.montoInicial).toLocaleString()} de base.
-          </p>
+          {!editandoBase ? (
+            <div className="flex items-center gap-3 mb-4">
+              <p className="text-sm text-muted">
+                Turno abierto con ${Number(turno.montoInicial).toLocaleString()} de base.
+                {turno.edicionesBase?.length > 0 && (
+                  <span className="ml-2 text-xs bg-amber-950/60 text-amber-400 px-2 py-0.5 rounded">
+                    BASE EDITADA
+                  </span>
+                )}
+              </p>
+              <button
+                onClick={() => {
+                  setEditandoBase(true)
+                  setNuevaBase(String(turno.montoInicial))
+                }}
+                className="text-brand-light text-xs font-medium hover:underline"
+              >
+                Editar base
+              </button>
+            </div>
+          ) : (
+            <div className="mb-4 bg-panel border border-line rounded-lg p-3">
+              <label className="block text-sm font-medium text-slate-200 mb-1">
+                Corregir monto inicial de caja
+              </label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  min="0"
+                  value={nuevaBase}
+                  onChange={(e) => setNuevaBase(e.target.value)}
+                  className="border border-line rounded-lg px-3 py-2 w-40"
+                  autoFocus
+                />
+                <button
+                  onClick={handleGuardarBase}
+                  disabled={procesando}
+                  className="bg-brand text-white px-3 py-2 rounded-lg hover:bg-brand-dark text-sm disabled:opacity-50"
+                >
+                  {procesando ? 'Guardando...' : 'Guardar'}
+                </button>
+                <button
+                  onClick={() => setEditandoBase(false)}
+                  className="text-muted text-sm hover:underline"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {turno.edicionesBase?.length > 0 && (
+            <div className="mb-4 text-xs text-muted bg-panel border border-line rounded-lg p-3">
+              <p className="font-medium text-slate-300 mb-1">Historial de ediciones de base:</p>
+              {turno.edicionesBase.map((ed, idx) => (
+                <p key={idx}>
+                  ${Number(ed.anterior).toLocaleString()} → ${Number(ed.nuevo).toLocaleString()}
+                  {ed.fecha && (
+                    <>
+                      {' '}
+                      —{' '}
+                      {(ed.fecha.toDate ? ed.fecha.toDate() : new Date(ed.fecha)).toLocaleString(
+                        'es-CO'
+                      )}
+                    </>
+                  )}
+                </p>
+              ))}
+            </div>
+          )}
 
           {cargandoResumen && <p className="text-muted text-sm">Calculando resumen...</p>}
 
@@ -169,7 +262,7 @@ export default function Caja() {
               <p className="font-medium mb-2">
                 Ventas del turno: {resumen.cantidadVentas}
               </p>
-              <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm mb-2">
                 <div className="bg-panel rounded p-3">
                   <p className="text-muted">Efectivo</p>
                   <p className="font-semibold">${resumen.efectivo.toLocaleString()}</p>
@@ -181,6 +274,14 @@ export default function Caja() {
                 <div className="bg-panel rounded p-3">
                   <p className="text-muted">Transferencia</p>
                   <p className="font-semibold">${resumen.transferencia.toLocaleString()}</p>
+                </div>
+                <div className="bg-panel rounded p-3">
+                  <p className="text-muted">Sistecrédito</p>
+                  <p className="font-semibold">${resumen.sistecredito.toLocaleString()}</p>
+                </div>
+                <div className="bg-panel rounded p-3">
+                  <p className="text-muted">Addi</p>
+                  <p className="font-semibold">${resumen.addi.toLocaleString()}</p>
                 </div>
                 <div className="bg-panel rounded p-3">
                   <p className="text-muted">Total ventas</p>
