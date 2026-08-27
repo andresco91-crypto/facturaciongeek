@@ -6,11 +6,11 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { useProductos } from '../hooks/useProductos'
+import { useProductosCtx } from '../hooks/useProductosContext'
 import { useCompraDraft } from '../hooks/useCompraDraft'
 
 export default function Compras() {
-  const { productos, buscar, recargar } = useProductos()
+  const { productos, buscar, aplicarAjustesLocales, agregarProductoLocal } = useProductosCtx()
   const { items, setItems } = useCompraDraft() // persiste aunque navegues a otro módulo
   const [textoBusqueda, setTextoBusqueda] = useState('')
   const [guardando, setGuardando] = useState(false)
@@ -83,6 +83,8 @@ export default function Compras() {
 
     try {
       const batch = writeBatch(db)
+      const ajustesExistentes = []
+      const productosNuevos = []
 
       for (const item of items) {
         const cantidad = Number(item.cantidad) || 0
@@ -103,7 +105,7 @@ export default function Compras() {
         const productoRef = doc(db, 'productos', item.codigo)
 
         if (item.esNuevo) {
-          batch.set(productoRef, {
+          const nuevoProducto = {
             codigo: item.codigo,
             nombre: item.nombre,
             costoPromedio: costoNuevo,
@@ -111,13 +113,20 @@ export default function Compras() {
             precioMayorista: 0,
             stock: cantidad,
             garantia: '',
-          })
+          }
+          batch.set(productoRef, nuevoProducto)
+          productosNuevos.push({ id: item.codigo, ...nuevoProducto })
         } else {
           batch.set(
             productoRef,
             { stock: nuevoStock, costoPromedio: nuevoCosto },
             { merge: true }
           )
+          ajustesExistentes.push({
+            codigo: item.codigo,
+            nuevoStock,
+            nuevoCosto,
+          })
         }
       }
 
@@ -137,7 +146,8 @@ export default function Compras() {
 
       setMensaje({ tipo: 'exito', texto: `Compra registrada: ${items.length} producto(s) actualizados.` })
       setItems([]) // limpia el borrador solo cuando la compra se guarda con éxito
-      recargar()
+      aplicarAjustesLocales(ajustesExistentes)
+      productosNuevos.forEach((p) => agregarProductoLocal(p))
     } catch (err) {
       setMensaje({ tipo: 'error', texto: 'Error al guardar la compra: ' + err.message })
     } finally {
