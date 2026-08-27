@@ -12,6 +12,20 @@ function hoyISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function claveDia(fecha) {
+  const d = fecha?.toDate ? fecha.toDate() : new Date(fecha)
+  return d.toISOString().slice(0, 10)
+}
+
+function formatearDia(claveISO) {
+  const [anio, mes, dia] = claveISO.split('-')
+  return new Date(Number(anio), Number(mes) - 1, Number(dia)).toLocaleDateString('es-CO', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+  })
+}
+
 export default function Reportes() {
   const [desde, setDesde] = useState(hoyISO())
   const [hasta, setHasta] = useState(hoyISO())
@@ -54,31 +68,27 @@ export default function Reportes() {
       let totalVentas = 0
       let totalCompras = 0
       let gananciaEstimada = 0
-      const conteoPorProducto = {} // codigo -> { nombre, cantidad, valorCosto, valorVendido }
+      const porDia = {} // 'YYYY-MM-DD' -> { cantidadVentas, totalVendido, ganancia }
 
       for (const venta of ventas) {
-        totalVentas += Number(venta.total) || 0
+        const total = Number(venta.total) || 0
+        totalVentas += total
+
+        const dia = claveDia(venta.fecha)
+        if (!porDia[dia]) {
+          porDia[dia] = { cantidadVentas: 0, totalVendido: 0, ganancia: 0 }
+        }
+        porDia[dia].cantidadVentas += 1
+        porDia[dia].totalVendido += total
+
         for (const item of venta.items || []) {
           const cantidad = Number(item.cantidad) || 0
           const precioUnitario = Number(item.precioUnitario) || 0
           const costoUnitario = costoPorCodigo[item.codigo] ?? 0
+          const gananciaItem = (precioUnitario - costoUnitario) * cantidad
 
-          const valorVendido = cantidad * precioUnitario
-          const valorCosto = cantidad * costoUnitario
-
-          gananciaEstimada += valorVendido - valorCosto
-
-          if (!conteoPorProducto[item.codigo]) {
-            conteoPorProducto[item.codigo] = {
-              nombre: item.nombre,
-              cantidad: 0,
-              valorCosto: 0,
-              valorVendido: 0,
-            }
-          }
-          conteoPorProducto[item.codigo].cantidad += cantidad
-          conteoPorProducto[item.codigo].valorCosto += valorCosto
-          conteoPorProducto[item.codigo].valorVendido += valorVendido
+          gananciaEstimada += gananciaItem
+          porDia[dia].ganancia += gananciaItem
         }
       }
 
@@ -86,14 +96,9 @@ export default function Reportes() {
         totalCompras += Number(compra.total) || 0
       }
 
-      const topProductos = Object.entries(conteoPorProducto)
-        .map(([codigo, datos]) => ({
-          codigo,
-          ...datos,
-          ganancia: datos.valorVendido - datos.valorCosto,
-        }))
-        .sort((a, b) => b.cantidad - a.cantidad)
-        .slice(0, 10)
+      const totalesPorDia = Object.entries(porDia)
+        .map(([dia, datos]) => ({ dia, ...datos }))
+        .sort((a, b) => (a.dia < b.dia ? 1 : -1)) // más reciente primero
 
       setResultado({
         cantidadVentas: ventas.length,
@@ -101,7 +106,7 @@ export default function Reportes() {
         totalVentas,
         totalCompras,
         gananciaEstimada,
-        topProductos,
+        totalesPorDia,
       })
     } catch (err) {
       setError('Error al generar el reporte: ' + err.message)
@@ -163,7 +168,7 @@ export default function Reportes() {
             </div>
             <div className="bg-card border border-line rounded p-4 col-span-2 md:col-span-2">
               <p className="text-muted text-sm">Ganancia estimada</p>
-              <p className="text-xl font-bold text-emerald-300">
+              <p className="text-xl font-bold text-emerald-400">
                 ${resultado.gananciaEstimada.toLocaleString()}
               </p>
               <p className="text-xs text-muted">
@@ -172,40 +177,44 @@ export default function Reportes() {
             </div>
           </div>
 
-          <h2 className="text-lg font-semibold mb-2">Productos más vendidos</h2>
-          {resultado.topProductos.length === 0 ? (
+          <h2 className="text-lg font-semibold mb-2">Totalidad de lo vendido por día</h2>
+          {resultado.totalesPorDia.length === 0 ? (
             <p className="text-muted text-sm">No hay ventas en este rango de fechas.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm border border-line bg-card">
                 <thead className="bg-panel">
                   <tr>
-                    <th className="p-2 text-left">#</th>
-                    <th className="p-2 text-left">Producto</th>
-                    <th className="p-2 text-right">Unidades</th>
-                    <th className="p-2 text-right">Valor a costo</th>
-                    <th className="p-2 text-right">Valor vendido</th>
+                    <th className="p-2 text-left">Día</th>
+                    <th className="p-2 text-right">Facturas</th>
+                    <th className="p-2 text-right">Total vendido</th>
                     <th className="p-2 text-right">Ganancia</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {resultado.topProductos.map((p, idx) => (
-                    <tr key={p.codigo} className="border-t">
-                      <td className="p-2 text-muted">{idx + 1}</td>
-                      <td className="p-2">{p.nombre}</td>
-                      <td className="p-2 text-right">{p.cantidad}</td>
-                      <td className="p-2 text-right text-muted">
-                        ${p.valorCosto.toLocaleString()}
+                  {resultado.totalesPorDia.map((f) => (
+                    <tr key={f.dia} className="border-t border-line">
+                      <td className="p-2 capitalize">{formatearDia(f.dia)}</td>
+                      <td className="p-2 text-right text-muted">{f.cantidadVentas}</td>
+                      <td className="p-2 text-right font-medium">
+                        ${f.totalVendido.toLocaleString()}
                       </td>
-                      <td className="p-2 text-right">
-                        ${p.valorVendido.toLocaleString()}
-                      </td>
-                      <td className="p-2 text-right text-emerald-300 font-medium">
-                        ${p.ganancia.toLocaleString()}
+                      <td className="p-2 text-right text-emerald-400 font-medium">
+                        ${f.ganancia.toLocaleString()}
                       </td>
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t border-line bg-panel font-semibold">
+                    <td className="p-2">Total del rango</td>
+                    <td className="p-2 text-right">{resultado.cantidadVentas}</td>
+                    <td className="p-2 text-right">${resultado.totalVentas.toLocaleString()}</td>
+                    <td className="p-2 text-right text-emerald-400">
+                      ${resultado.gananciaEstimada.toLocaleString()}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
