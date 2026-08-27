@@ -15,6 +15,7 @@ import {
   CreditCard,
   LayoutDashboard,
   RotateCcw,
+  ShieldCheck,
   Menu,
   LogOut,
   Users,
@@ -40,6 +41,7 @@ import SugerenciaCompra from './pages/SugerenciaCompra'
 import VentasCredito from './pages/VentasCredito'
 import Dashboard from './pages/Dashboard'
 import Devoluciones from './pages/Devoluciones'
+import AsignarGarantias from './pages/AsignarGarantias'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -257,6 +259,14 @@ function AppLayout() {
               element={
                 <RutaProtegida>
                   <ImportarExcel />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path="/asignar-garantias"
+              element={
+                <RutaProtegida>
+                  <AsignarGarantias />
                 </RutaProtegida>
               }
             />
