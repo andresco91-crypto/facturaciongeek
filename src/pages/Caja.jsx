@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useTurno } from '../hooks/useTurno'
 import { useGastos } from '../hooks/useGastos'
+import { useDevoluciones } from '../hooks/useDevoluciones'
 
 export default function Caja() {
   const { turno, cargando, abrirTurno, editarMontoInicial, cerrarTurno, obtenerVentasDelTurno } = useTurno()
   const { registrarGasto } = useGastos()
+  const { obtenerDevolucionesDelTurno } = useDevoluciones()
 
   const [montoInicial, setMontoInicial] = useState('')
   const [montoJornal, setMontoJornal] = useState('')
   const [montoFinalEfectivo, setMontoFinalEfectivo] = useState('')
   const [resumen, setResumen] = useState(null)
+  const [devoluciones, setDevoluciones] = useState([])
   const [cargandoResumen, setCargandoResumen] = useState(false)
   const [procesando, setProcesando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
@@ -27,7 +30,10 @@ export default function Caja() {
 
   async function cargarResumen() {
     setCargandoResumen(true)
-    const ventas = await obtenerVentasDelTurno(turno.id)
+    const [ventas, listaDevoluciones] = await Promise.all([
+      obtenerVentasDelTurno(turno.id),
+      obtenerDevolucionesDelTurno(turno.id),
+    ])
 
     let efectivo = 0
     let tarjeta = 0
@@ -45,6 +51,16 @@ export default function Caja() {
       }
     }
 
+    // Las devoluciones/cambios cuya diferencia se paga o se devuelve en efectivo
+    // afectan directamente el efectivo esperado en caja (positivo o negativo).
+    let efectivoDevoluciones = 0
+    for (const dev of listaDevoluciones) {
+      if (dev.metodoDiferencia === 'efectivo' && dev.diferencia) {
+        efectivoDevoluciones += dev.diferencia
+      }
+    }
+
+    setDevoluciones(listaDevoluciones)
     setResumen({
       cantidadVentas: ventas.length,
       efectivo,
@@ -52,6 +68,7 @@ export default function Caja() {
       transferencia,
       sistecredito,
       addi,
+      efectivoDevoluciones,
       totalVentas: efectivo + tarjeta + transferencia + sistecredito + addi,
     })
     setCargandoResumen(false)
@@ -93,7 +110,8 @@ export default function Caja() {
     setMensaje(null)
 
     const jornal = Number(montoJornal) || 0
-    const efectivoEsperado = Number(turno.montoInicial) + resumen.efectivo - jornal
+    const efectivoEsperado =
+      Number(turno.montoInicial) + resumen.efectivo + (resumen.efectivoDevoluciones || 0) - jornal
     const diferencia = Number(montoFinalEfectivo || 0) - efectivoEsperado
 
     try {
@@ -131,7 +149,10 @@ export default function Caja() {
 
   const jornalPreview = Number(montoJornal) || 0
   const efectivoEsperadoPreview = resumen
-    ? Number(turno?.montoInicial || 0) + resumen.efectivo - jornalPreview
+    ? Number(turno?.montoInicial || 0) +
+      resumen.efectivo +
+      (resumen.efectivoDevoluciones || 0) -
+      jornalPreview
     : 0
 
   if (cargando) {
@@ -288,6 +309,39 @@ export default function Caja() {
                   <p className="font-semibold">${resumen.totalVentas.toLocaleString()}</p>
                 </div>
               </div>
+
+              {devoluciones.length > 0 && (
+                <div className="mt-3 bg-amber-950/40 border border-amber-800 rounded-lg p-3">
+                  <p className="text-amber-300 font-medium text-sm mb-2">
+                    Devoluciones y cambios de este turno ({devoluciones.length})
+                  </p>
+                  <div className="space-y-2">
+                    {devoluciones.map((dev) => (
+                      <div key={dev.id} className="text-xs text-amber-200 border-t border-amber-900 pt-2">
+                        <p className="font-medium">
+                          {dev.tipo === 'cambio' ? 'Cambio' : 'Devolución'}
+                          {dev.numeroFactura && ` · ${dev.numeroFactura}`}
+                        </p>
+                        <p>{dev.nota}</p>
+                        {dev.diferencia !== 0 && (
+                          <p className="mt-0.5">
+                            {dev.diferencia > 0
+                              ? `Cliente pagó $${Number(dev.diferencia).toLocaleString()}`
+                              : `Se devolvió $${Math.abs(Number(dev.diferencia)).toLocaleString()}`}
+                            {dev.metodoDiferencia && ` (${dev.metodoDiferencia})`}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {resumen.efectivoDevoluciones !== 0 && (
+                    <p className="text-amber-300 text-xs font-medium mt-2 border-t border-amber-900 pt-2">
+                      Efecto neto en efectivo: {resumen.efectivoDevoluciones > 0 ? '+' : ''}$
+                      {resumen.efectivoDevoluciones.toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -312,7 +366,10 @@ export default function Caja() {
             {resumen && (
               <p className="text-sm text-slate-300 mb-4">
                 Efectivo esperado: base (${Number(turno.montoInicial).toLocaleString()}) +
-                ventas en efectivo (${resumen.efectivo.toLocaleString()}) − jornal (${jornalPreview.toLocaleString()}) ={' '}
+                ventas en efectivo (${resumen.efectivo.toLocaleString()})
+                {resumen.efectivoDevoluciones !== 0 &&
+                  ` ${resumen.efectivoDevoluciones > 0 ? '+' : '−'} devoluciones ($${Math.abs(resumen.efectivoDevoluciones).toLocaleString()})`}
+                {' '}− jornal (${jornalPreview.toLocaleString()}) ={' '}
                 <strong>${efectivoEsperadoPreview.toLocaleString()}</strong>
               </p>
             )}
