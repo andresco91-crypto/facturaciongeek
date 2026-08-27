@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { useProductos } from '../hooks/useProductos'
+import { useProductosCtx } from '../hooks/useProductosContext'
 
 export default function Inventario() {
-  const { productos, cargando, buscar, recargar } = useProductos()
+  const { productos, cargando, buscar, actualizarProductoLocal } = useProductosCtx()
   const [textoBusqueda, setTextoBusqueda] = useState('')
   const [filtroStock, setFiltroStock] = useState('todos') // todos | con-stock | agotados
   const [editando, setEditando] = useState(null) // codigo del producto en edición
@@ -53,16 +53,17 @@ export default function Inventario() {
     setGuardando(true)
     setMensaje(null)
     try {
-      await updateDoc(doc(db, 'productos', codigo), {
+      const cambios = {
         precioPublico: Number(valores.precioPublico) || 0,
         precioMayorista: Number(valores.precioMayorista) || 0,
         costoPromedio: Number(valores.costoPromedio) || 0,
         garantia: String(valores.garantia || '').trim(),
         stock: Number(valores.stock) || 0,
-      })
+      }
+      await updateDoc(doc(db, 'productos', codigo), cambios)
       setMensaje({ tipo: 'exito', texto: 'Producto actualizado.' })
       setEditando(null)
-      recargar()
+      actualizarProductoLocal(codigo, cambios)
     } catch (err) {
       setMensaje({ tipo: 'error', texto: 'Error al guardar: ' + err.message })
     } finally {
