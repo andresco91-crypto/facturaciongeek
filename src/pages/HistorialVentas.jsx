@@ -157,6 +157,11 @@ export default function HistorialVentas() {
                 >
                   <div>
                     <span className="font-medium">{formatearFecha(venta.fecha)}</span>
+                    {venta.numeroFactura && (
+                      <span className="text-brand-light ml-2 text-sm font-mono">
+                        {venta.numeroFactura}
+                      </span>
+                    )}
                     <span className="text-muted ml-2 text-sm">
                       {venta.items?.length || 0} producto(s)
                     </span>
