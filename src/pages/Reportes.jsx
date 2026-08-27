@@ -98,10 +98,12 @@ export default function Reportes() {
               nombre: item.nombre,
               cantidad: 0,
               valorVendido: 0,
+              ganancia: 0,
             }
           }
           porDia[dia].productos[item.codigo].cantidad += cantidad
           porDia[dia].productos[item.codigo].valorVendido += valorVendido
+          porDia[dia].productos[item.codigo].ganancia += gananciaItem
         }
       }
 
@@ -242,6 +244,7 @@ export default function Reportes() {
                             <th className="text-left font-normal">Producto</th>
                             <th className="text-right font-normal">Unidades</th>
                             <th className="text-right font-normal">Total vendido</th>
+                            <th className="text-right font-normal">Ganancia</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -251,6 +254,9 @@ export default function Reportes() {
                               <td className="py-1 text-right">{p.cantidad}</td>
                               <td className="py-1 text-right">
                                 ${p.valorVendido.toLocaleString()}
+                              </td>
+                              <td className="py-1 text-right text-emerald-400">
+                                ${p.ganancia.toLocaleString()}
                               </td>
                             </tr>
                           ))}
