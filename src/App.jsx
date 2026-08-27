@@ -14,6 +14,7 @@ import {
   TrendingUp,
   CreditCard,
   LayoutDashboard,
+  RotateCcw,
   Menu,
   LogOut,
   Users,
@@ -38,6 +39,7 @@ import Exportar from './pages/Exportar'
 import SugerenciaCompra from './pages/SugerenciaCompra'
 import VentasCredito from './pages/VentasCredito'
 import Dashboard from './pages/Dashboard'
+import Devoluciones from './pages/Devoluciones'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -59,6 +61,7 @@ const NAV_ITEMS = [
   { to: '/historial', label: 'Historial ventas', icon: History, admin: false },
   { to: '/historial-compras', label: 'Historial compras', icon: FileClock, admin: true },
   { to: '/caja', label: 'Caja', icon: Wallet, admin: false },
+  { to: '/devoluciones', label: 'Devoluciones y cambios', icon: RotateCcw, admin: false },
   { to: '/reportes', label: 'Reportes', icon: BarChart3, admin: true },
   { to: '/notas', label: 'Notas', icon: StickyNote, admin: false },
   { to: '/importar', label: 'Importar Excel', icon: FileSpreadsheet, admin: true, accent: true },
@@ -239,6 +242,7 @@ function AppLayout() {
               }
             />
             <Route path="/caja" element={<Caja />} />
+            <Route path="/devoluciones" element={<Devoluciones />} />
             <Route
               path="/reportes"
               element={
