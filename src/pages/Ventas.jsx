@@ -7,6 +7,7 @@ import {
   increment,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { obtenerSiguienteNumeroFactura } from '../lib/contadores'
 import { useProductos } from '../hooks/useProductos'
 import { useTurno } from '../hooks/useTurno'
 import TicketVenta from '../components/TicketVenta'
@@ -15,7 +16,10 @@ const METODOS_PAGO = [
   { id: 'efectivo', label: 'Efectivo' },
   { id: 'tarjeta', label: 'Tarjeta' },
   { id: 'transferencia', label: 'Transferencia' },
+  { id: 'sistecredito', label: 'Sistecrédito' },
+  { id: 'addi', label: 'Addi' },
 ]
+
 
 export default function Ventas() {
   const { productos, buscar, recargar } = useProductos()
@@ -149,6 +153,7 @@ export default function Ventas() {
     setMensaje(null)
 
     try {
+      const numeroFactura = await obtenerSiguienteNumeroFactura()
       const batch = writeBatch(db)
 
       for (const item of items) {
@@ -175,6 +180,7 @@ export default function Ventas() {
       const ventaRef = doc(collection(db, 'ventas'))
       batch.set(ventaRef, {
         fecha: serverTimestamp(),
+        numeroFactura,
         items: itemsFinales,
         pagos: pagosFinales,
         total,
@@ -185,6 +191,7 @@ export default function Ventas() {
 
       setUltimaVenta({
         fecha: new Date(),
+        numeroFactura,
         items: itemsFinales,
         pagos: pagosFinales,
         total,
