@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { obtenerSiguienteNumeroFactura } from '../lib/contadores'
-import { useProductos } from '../hooks/useProductos'
+import { useProductosCtx } from '../hooks/useProductosContext'
 import { useTurno } from '../hooks/useTurno'
 import TicketVenta from '../components/TicketVenta'
 
@@ -22,7 +22,7 @@ const METODOS_PAGO = [
 
 
 export default function Ventas() {
-  const { productos, buscar, recargar } = useProductos()
+  const { productos, buscar, aplicarAjustesLocales } = useProductosCtx()
   const { turno, cargando: cargandoTurno } = useTurno()
   const [textoBusqueda, setTextoBusqueda] = useState('')
   const [items, setItems] = useState([])
@@ -200,7 +200,9 @@ export default function Ventas() {
       setMensaje({ tipo: 'exito', texto: `Venta registrada por $${total.toLocaleString()}.` })
       setItems([])
       setPagos([{ metodo: 'efectivo', monto: '' }])
-      recargar()
+      aplicarAjustesLocales(
+        itemsFinales.map((i) => ({ codigo: i.codigo, stockDelta: -i.cantidad }))
+      )
     } catch (err) {
       setMensaje({ tipo: 'error', texto: 'Error al guardar la venta: ' + err.message })
     } finally {
