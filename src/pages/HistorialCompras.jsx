@@ -5,6 +5,10 @@ import {
   where,
   orderBy,
   getDocs,
+  doc,
+  writeBatch,
+  increment,
+  serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
@@ -24,7 +28,10 @@ export default function HistorialCompras() {
   const [hasta, setHasta] = useState(hoyISO())
   const [compras, setCompras] = useState([])
   const [expandida, setExpandida] = useState(null)
+  const [editandoId, setEditandoId] = useState(null)
+  const [itemsEdicion, setItemsEdicion] = useState([])
   const [cargando, setCargando] = useState(false)
+  const [procesando, setProcesando] = useState(false)
   const [error, setError] = useState('')
   const [buscado, setBuscado] = useState(false)
 
@@ -53,9 +60,119 @@ export default function HistorialCompras() {
 
   function toggleExpandir(id) {
     setExpandida(expandida === id ? null : id)
+    setEditandoId(null)
   }
 
-  const totalGeneral = compras.reduce((acc, c) => acc + Number(c.total || 0), 0)
+  function empezarEdicion(compra) {
+    setEditandoId(compra.id)
+    setItemsEdicion(compra.items.map((i) => ({ ...i })))
+    setError('')
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null)
+    setItemsEdicion([])
+  }
+
+  function actualizarItemEdicion(idx, campo, valor) {
+    const copia = [...itemsEdicion]
+    copia[idx][campo] = valor
+    setItemsEdicion(copia)
+  }
+
+  async function guardarEdicion(compra) {
+    setProcesando(true)
+    setError('')
+    try {
+      const batch = writeBatch(db)
+      let nuevoTotal = 0
+
+      for (let i = 0; i < itemsEdicion.length; i++) {
+        const original = compra.items[i]
+        const editado = itemsEdicion[i]
+        const cantidadNueva = Number(editado.cantidad) || 0
+        const costoNuevo = Number(editado.costoUnitario) || 0
+        const delta = cantidadNueva - (Number(original.cantidad) || 0)
+
+        nuevoTotal += cantidadNueva * costoNuevo
+
+        if (delta !== 0) {
+          const productoRef = doc(db, 'productos', editado.codigo)
+          batch.update(productoRef, { stock: increment(delta) })
+        }
+      }
+
+      const compraRef = doc(db, 'compras', compra.id)
+      batch.update(compraRef, {
+        items: itemsEdicion.map((i) => ({
+          codigo: i.codigo,
+          nombre: i.nombre,
+          cantidad: Number(i.cantidad) || 0,
+          costoUnitario: Number(i.costoUnitario) || 0,
+        })),
+        total: nuevoTotal,
+        fechaEdicion: serverTimestamp(),
+      })
+
+      await batch.commit()
+
+      setCompras((prev) =>
+        prev.map((c) =>
+          c.id === compra.id
+            ? { ...c, items: itemsEdicion, total: nuevoTotal, fechaEdicion: new Date() }
+            : c
+        )
+      )
+      setEditandoId(null)
+      setItemsEdicion([])
+    } catch (err) {
+      setError('Error al guardar los cambios: ' + err.message)
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  async function anularCompra(compra) {
+    const confirmado = confirm(
+      `¿Anular esta compra por $${Number(compra.total).toLocaleString()} del ${formatearFecha(
+        compra.fecha
+      )}?\n\nEsto restará del stock las cantidades que esta compra había agregado. Esta acción no se puede deshacer.`
+    )
+    if (!confirmado) return
+
+    setProcesando(true)
+    setError('')
+    try {
+      const batch = writeBatch(db)
+
+      for (const item of compra.items || []) {
+        const productoRef = doc(db, 'productos', item.codigo)
+        batch.update(productoRef, {
+          stock: increment(-(Number(item.cantidad) || 0)),
+        })
+      }
+
+      const compraRef = doc(db, 'compras', compra.id)
+      batch.update(compraRef, {
+        anulada: true,
+        fechaAnulacion: serverTimestamp(),
+      })
+
+      await batch.commit()
+
+      setCompras((prev) =>
+        prev.map((c) => (c.id === compra.id ? { ...c, anulada: true } : c))
+      )
+    } catch (err) {
+      setError('Error al anular: ' + err.message)
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  const totalGeneral = compras
+    .filter((c) => c.anulada !== true)
+    .reduce((acc, c) => acc + Number(c.total || 0), 0)
 
   return (
     <div className="p-6 max-w-4xl">
@@ -104,7 +221,12 @@ export default function HistorialCompras() {
 
           <div className="space-y-2">
             {compras.map((compra) => (
-              <div key={compra.id} className="bg-card border border-line rounded">
+              <div
+                key={compra.id}
+                className={`bg-card border rounded ${
+                  compra.anulada ? 'border-red-900 opacity-60' : 'border-line'
+                }`}
+              >
                 <button
                   onClick={() => toggleExpandir(compra.id)}
                   className="w-full text-left p-3 flex justify-between items-center hover:bg-panel"
@@ -114,6 +236,16 @@ export default function HistorialCompras() {
                     <span className="text-muted ml-2 text-sm">
                       {compra.items?.length || 0} producto(s)
                     </span>
+                    {compra.anulada && (
+                      <span className="ml-2 text-xs bg-red-950/60 text-red-300 px-2 py-0.5 rounded">
+                        ANULADA
+                      </span>
+                    )}
+                    {compra.fechaEdicion && !compra.anulada && (
+                      <span className="ml-2 text-xs bg-amber-950/60 text-amber-400 px-2 py-0.5 rounded">
+                        EDITADA
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold">
@@ -126,31 +258,128 @@ export default function HistorialCompras() {
                 </button>
 
                 {expandida === compra.id && (
-                  <div className="border-t p-3 text-sm">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="text-muted">
-                          <th className="text-left font-normal">Producto</th>
-                          <th className="text-right font-normal">Cant.</th>
-                          <th className="text-right font-normal">Costo unitario</th>
-                          <th className="text-right font-normal">Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {compra.items?.map((item, idx) => (
-                          <tr key={idx} className="border-t">
-                            <td className="py-1">{item.nombre}</td>
-                            <td className="py-1 text-right">{item.cantidad}</td>
-                            <td className="py-1 text-right">
-                              ${Number(item.costoUnitario).toLocaleString()}
-                            </td>
-                            <td className="py-1 text-right">
-                              ${(item.cantidad * item.costoUnitario).toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="border-t border-line p-3 text-sm">
+                    {editandoId === compra.id ? (
+                      <>
+                        <table className="w-full mb-3">
+                          <thead>
+                            <tr className="text-muted">
+                              <th className="text-left font-normal">Producto</th>
+                              <th className="text-right font-normal">Cant.</th>
+                              <th className="text-right font-normal">Costo unitario</th>
+                              <th className="text-right font-normal">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {itemsEdicion.map((item, idx) => (
+                              <tr key={idx} className="border-t border-line">
+                                <td className="py-1">{item.nombre}</td>
+                                <td className="py-1 text-right">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={item.cantidad}
+                                    onChange={(e) =>
+                                      actualizarItemEdicion(idx, 'cantidad', e.target.value)
+                                    }
+                                    className="w-20 border border-line rounded-md px-2 py-1 text-right"
+                                  />
+                                </td>
+                                <td className="py-1 text-right">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={item.costoUnitario}
+                                    onChange={(e) =>
+                                      actualizarItemEdicion(idx, 'costoUnitario', e.target.value)
+                                    }
+                                    className="w-24 border border-line rounded-md px-2 py-1 text-right"
+                                  />
+                                </td>
+                                <td className="py-1 text-right">
+                                  $
+                                  {(
+                                    Number(item.cantidad || 0) * Number(item.costoUnitario || 0)
+                                  ).toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        <p className="text-xs text-amber-400 mb-3">
+                          El stock se ajustará según la diferencia entre la cantidad original y
+                          la nueva. Si el costo cambió mucho, revisa el costo promedio del
+                          producto en Inventario.
+                        </p>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => guardarEdicion(compra)}
+                            disabled={procesando}
+                            className="text-emerald-400 text-sm font-medium hover:underline disabled:opacity-50"
+                          >
+                            {procesando ? 'Guardando...' : 'Guardar cambios'}
+                          </button>
+                          <button
+                            onClick={cancelarEdicion}
+                            className="text-muted text-sm hover:underline"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <table className="w-full mb-3">
+                          <thead>
+                            <tr className="text-muted">
+                              <th className="text-left font-normal">Producto</th>
+                              <th className="text-right font-normal">Cant.</th>
+                              <th className="text-right font-normal">Costo unitario</th>
+                              <th className="text-right font-normal">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {compra.items?.map((item, idx) => (
+                              <tr key={idx} className="border-t border-line">
+                                <td className="py-1">{item.nombre}</td>
+                                <td className="py-1 text-right">{item.cantidad}</td>
+                                <td className="py-1 text-right">
+                                  ${Number(item.costoUnitario).toLocaleString()}
+                                </td>
+                                <td className="py-1 text-right">
+                                  ${(item.cantidad * item.costoUnitario).toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        {compra.anulada ? (
+                          <p className="text-red-400 text-xs font-medium">
+                            Esta compra fue anulada el {formatearFecha(compra.fechaAnulacion)}.
+                            El stock ya fue revertido.
+                          </p>
+                        ) : (
+                          <div className="flex gap-4">
+                            <button
+                              onClick={() => empezarEdicion(compra)}
+                              className="text-brand-light text-xs font-medium hover:underline"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => anularCompra(compra)}
+                              disabled={procesando}
+                              className="text-red-400 text-xs font-medium hover:underline disabled:opacity-50"
+                            >
+                              Anular esta compra
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
