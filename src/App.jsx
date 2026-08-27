@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { CompraDraftProvider } from './hooks/useCompraDraft'
+import { ProductosProvider } from './hooks/useProductosContext'
 import { RoleProvider, useRole } from './hooks/useRole'
 import Login from './pages/Login'
 import SelectorRol from './pages/SelectorRol'
@@ -286,9 +287,11 @@ function SeleccionDeRol() {
   const { rol } = useRole()
   if (!rol) return <SelectorRol />
   return (
-    <CompraDraftProvider>
-      <AppLayout />
-    </CompraDraftProvider>
+    <ProductosProvider>
+      <CompraDraftProvider>
+        <AppLayout />
+      </CompraDraftProvider>
+    </ProductosProvider>
   )
 }
 
