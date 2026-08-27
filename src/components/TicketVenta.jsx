@@ -1,6 +1,8 @@
 // Ticket de venta con formato para impresora térmica de 80mm.
 // Se muestra oculto en pantalla y solo se activa al llamar window.print().
 // El CSS @media print controla que SOLO el ticket se imprima (todo lo demás se oculta).
+// IMPORTANTE: se fuerza color negro sobre fondo blanco explícitamente, sin depender
+// de los estilos del tema oscuro de la app, para que sea legible en la impresora.
 
 export default function TicketVenta({ venta }) {
   if (!venta) return null
@@ -9,13 +11,27 @@ export default function TicketVenta({ venta }) {
 
   return (
     <div id="ticket-imprimible" className="hidden print:block">
-      <div style={{ width: '80mm', fontFamily: 'monospace', fontSize: '12px', padding: '4mm' }}>
+      <div
+        style={{
+          width: '80mm',
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          padding: '4mm',
+          color: '#000',
+          background: '#fff',
+        }}
+      >
         <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14px', margin: 0 }}>
           FacturacionGeek
         </p>
         <p style={{ textAlign: 'center', margin: '2px 0' }}>
           {fecha.toLocaleDateString('es-CO')} {fecha.toLocaleTimeString('es-CO')}
         </p>
+        {venta.numeroFactura && (
+          <p style={{ textAlign: 'center', margin: '2px 0', fontWeight: 'bold' }}>
+            Factura: {venta.numeroFactura}
+          </p>
+        )}
         <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '4px 0' }} />
 
         {venta.items.map((item, idx) => (
