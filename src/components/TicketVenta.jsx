@@ -15,16 +15,27 @@ export default function TicketVenta({ venta }) {
         style={{
           width: '80mm',
           fontFamily: 'monospace',
-          fontSize: '12px',
+          fontSize: '14px',
+          lineHeight: 1.4,
           padding: '4mm',
           color: '#000',
           background: '#fff',
         }}
       >
-        <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14px', margin: 0 }}>
-          FacturacionGeek
+        <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '18px', margin: 0 }}>
+          GeekStore
         </p>
-        <p style={{ textAlign: 'center', margin: '2px 0' }}>
+        <p style={{ textAlign: 'center', margin: '2px 0', fontSize: '12px' }}>
+          Dg 46 sur No 53-37
+        </p>
+        <p style={{ textAlign: 'center', margin: '2px 0', fontSize: '12px' }}>
+          C.C Venecia Plaza
+        </p>
+        <p style={{ textAlign: 'center', margin: '2px 0', fontSize: '12px' }}>
+          Local 107
+        </p>
+
+        <p style={{ textAlign: 'center', margin: '6px 0 2px' }}>
           {fecha.toLocaleDateString('es-CO')} {fecha.toLocaleTimeString('es-CO')}
         </p>
         {venta.numeroFactura && (
@@ -32,11 +43,11 @@ export default function TicketVenta({ venta }) {
             Factura: {venta.numeroFactura}
           </p>
         )}
-        <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '4px 0' }} />
+        <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '6px 0' }} />
 
         {venta.items.map((item, idx) => (
-          <div key={idx} style={{ marginBottom: '4px' }}>
-            <div>{item.nombre}</div>
+          <div key={idx} style={{ marginBottom: '6px' }}>
+            <div style={{ fontWeight: 'bold' }}>{item.nombre}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>
                 {item.cantidad} x ${Number(item.precioUnitario).toLocaleString()}
@@ -48,14 +59,14 @@ export default function TicketVenta({ venta }) {
           </div>
         ))}
 
-        <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '4px 0' }} />
+        <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '6px 0' }} />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '16px' }}>
           <span>TOTAL</span>
           <span>${Number(venta.total).toLocaleString()}</span>
         </div>
 
-        <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '4px 0' }} />
+        <hr style={{ border: 'none', borderTop: '1px dashed #000', margin: '6px 0' }} />
 
         {venta.pagos.map((pago, idx) => (
           <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -64,7 +75,7 @@ export default function TicketVenta({ venta }) {
           </div>
         ))}
 
-        <p style={{ textAlign: 'center', marginTop: '8px' }}>¡Gracias por su compra!</p>
+        <p style={{ textAlign: 'center', marginTop: '10px' }}>¡Gracias por su compra!</p>
       </div>
     </div>
   )
