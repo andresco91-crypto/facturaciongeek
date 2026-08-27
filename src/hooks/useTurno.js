@@ -9,6 +9,8 @@ import {
   updateDoc,
   serverTimestamp,
   getDocs,
+  arrayUnion,
+  Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 
@@ -42,6 +44,19 @@ export function useTurno() {
     })
   }
 
+  // Permite corregir la base de caja si hubo un error al contar,
+  // dejando registrado quién/cuándo/qué valor tenía antes en el propio turno.
+  async function editarMontoInicial(turnoId, nuevoMonto, montoAnterior) {
+    await updateDoc(doc(db, 'turnos', turnoId), {
+      montoInicial: Number(nuevoMonto) || 0,
+      edicionesBase: arrayUnion({
+        anterior: Number(montoAnterior) || 0,
+        nuevo: Number(nuevoMonto) || 0,
+        fecha: Timestamp.now(),
+      }),
+    })
+  }
+
   async function cerrarTurno(turnoId, montoFinalEfectivo, resumenVentas) {
     await updateDoc(doc(db, 'turnos', turnoId), {
       fechaCierre: serverTimestamp(),
@@ -49,6 +64,8 @@ export function useTurno() {
       totalVentasEfectivo: resumenVentas.efectivo,
       totalVentasTarjeta: resumenVentas.tarjeta,
       totalVentasTransferencia: resumenVentas.transferencia,
+      totalVentasSistecredito: resumenVentas.sistecredito || 0,
+      totalVentasAddi: resumenVentas.addi || 0,
       totalGastos: resumenVentas.totalGastos || 0,
       diferencia: resumenVentas.diferencia,
     })
@@ -64,5 +81,5 @@ export function useTurno() {
       .filter((v) => v.anulada !== true)
   }
 
-  return { turno, cargando, abrirTurno, cerrarTurno, obtenerVentasDelTurno }
+  return { turno, cargando, abrirTurno, editarMontoInicial, cerrarTurno, obtenerVentasDelTurno }
 }
