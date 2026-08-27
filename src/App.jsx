@@ -13,6 +13,7 @@ import {
   Download,
   TrendingUp,
   CreditCard,
+  LayoutDashboard,
   Menu,
   LogOut,
   Users,
@@ -36,6 +37,7 @@ import Notas from './pages/Notas'
 import Exportar from './pages/Exportar'
 import SugerenciaCompra from './pages/SugerenciaCompra'
 import VentasCredito from './pages/VentasCredito'
+import Dashboard from './pages/Dashboard'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -46,9 +48,11 @@ const RUTAS_SOLO_ADMIN = [
   '/exportar',
   '/sugerencia-compra',
   '/ventas-credito',
+  '/dashboard',
 ]
 
 const NAV_ITEMS = [
+  { to: '/dashboard', label: 'Inicio', icon: LayoutDashboard, admin: true },
   { to: '/', label: 'Ventas', icon: ShoppingCart, admin: false },
   { to: '/compras', label: 'Compras', icon: Truck, admin: true },
   { to: '/inventario', label: 'Inventario', icon: Package, admin: true },
@@ -273,6 +277,14 @@ function AppLayout() {
               element={
                 <RutaProtegida>
                   <VentasCredito />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <RutaProtegida>
+                  <Dashboard />
                 </RutaProtegida>
               }
             />
