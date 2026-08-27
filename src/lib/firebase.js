@@ -3,7 +3,12 @@
 // (Firebase Console > Configuración del proyecto > Tus apps > SDK setup)
 
 import { initializeApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
+import {
+  initializeFirestore,
+  getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -17,6 +22,24 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig)
 
-export const db = getFirestore(app)
+// Habilita caché local (IndexedDB) para que la app siga funcionando sin internet:
+// los productos ya cargados quedan disponibles, y las ventas/compras que hagas
+// sin conexión se guardan localmente y se sincronizan solas al volver la señal.
+// persistentMultipleTabManager permite tener la app abierta en varias pestañas
+// del mismo dispositivo sin conflictos.
+let db
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  })
+} catch (err) {
+  // Si el navegador no soporta IndexedDB (ej: algunos modos incógnito),
+  // usamos Firestore sin caché local como respaldo, en vez de romper la app.
+  db = getFirestore(app)
+}
+
+export { db }
 export const auth = getAuth(app)
 export default app
