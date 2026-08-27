@@ -12,6 +12,7 @@ import {
   FileSpreadsheet,
   Download,
   TrendingUp,
+  CreditCard,
   Menu,
   LogOut,
   Users,
@@ -33,6 +34,7 @@ import HistorialCompras from './pages/HistorialCompras'
 import Notas from './pages/Notas'
 import Exportar from './pages/Exportar'
 import SugerenciaCompra from './pages/SugerenciaCompra'
+import VentasCredito from './pages/VentasCredito'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -42,6 +44,7 @@ const RUTAS_SOLO_ADMIN = [
   '/importar',
   '/exportar',
   '/sugerencia-compra',
+  '/ventas-credito',
 ]
 
 const NAV_ITEMS = [
@@ -56,6 +59,7 @@ const NAV_ITEMS = [
   { to: '/importar', label: 'Importar Excel', icon: FileSpreadsheet, admin: true, accent: true },
   { to: '/exportar', label: 'Exportar datos', icon: Download, admin: true },
   { to: '/sugerencia-compra', label: 'Sugerencia de compra', icon: TrendingUp, admin: true },
+  { to: '/ventas-credito', label: 'Ventas Addi/Sistecrédito', icon: CreditCard, admin: true },
 ]
 
 function RutaProtegida({ children }) {
@@ -260,6 +264,14 @@ function AppLayout() {
               element={
                 <RutaProtegida>
                   <SugerenciaCompra />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path="/ventas-credito"
+              element={
+                <RutaProtegida>
+                  <VentasCredito />
                 </RutaProtegida>
               }
             />
