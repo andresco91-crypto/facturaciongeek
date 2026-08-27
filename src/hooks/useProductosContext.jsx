@@ -72,6 +72,15 @@ export function ProductosProvider({ children }) {
     )
   }
 
+  // Actualiza varios productos a la vez en memoria (ej: asignación masiva de garantías)
+  function actualizarVariosLocal(cambiosPorCodigo) {
+    setProductos((prev) =>
+      prev.map((p) =>
+        cambiosPorCodigo[p.codigo] ? { ...p, ...cambiosPorCodigo[p.codigo] } : p
+      )
+    )
+  }
+
   return (
     <ProductosContext.Provider
       value={{
@@ -82,6 +91,7 @@ export function ProductosProvider({ children }) {
         aplicarAjustesLocales,
         agregarProductoLocal,
         actualizarProductoLocal,
+        actualizarVariosLocal,
       }}
     >
       {children}
