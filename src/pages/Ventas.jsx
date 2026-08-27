@@ -361,7 +361,7 @@ export default function Ventas() {
             </div>
           ) : (
             pagos.map((pago, idx) => (
-              <div key={idx} className="flex gap-2 mb-2 items-center">
+              <div key={`pago-${idx}`} className="flex gap-2 mb-2 items-center">
                 <select
                   value={pago.metodo}
                   onChange={(e) => actualizarPago(idx, 'metodo', e.target.value)}
