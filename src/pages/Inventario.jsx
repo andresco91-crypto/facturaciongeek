@@ -37,6 +37,7 @@ export default function Inventario() {
     setValores({
       precioPublico: producto.precioPublico ?? 0,
       precioMayorista: producto.precioMayorista ?? 0,
+      costoPromedio: producto.costoPromedio ?? 0,
       garantia: producto.garantia ?? '',
       stock: producto.stock ?? 0,
     })
@@ -55,6 +56,7 @@ export default function Inventario() {
       await updateDoc(doc(db, 'productos', codigo), {
         precioPublico: Number(valores.precioPublico) || 0,
         precioMayorista: Number(valores.precioMayorista) || 0,
+        costoPromedio: Number(valores.costoPromedio) || 0,
         garantia: String(valores.garantia || '').trim(),
         stock: Number(valores.stock) || 0,
       })
@@ -148,7 +150,18 @@ export default function Inventario() {
                   <td className="p-2 text-muted">{p.codigo}</td>
                   <td className="p-2">{p.nombre}</td>
                   <td className="p-2 text-right text-muted">
-                    ${Number(p.costoPromedio || 0).toLocaleString()}
+                    {editando === p.codigo ? (
+                      <input
+                        type="number"
+                        value={valores.costoPromedio}
+                        onChange={(e) =>
+                          setValores({ ...valores, costoPromedio: e.target.value })
+                        }
+                        className="w-24 border border-line rounded-lg px-2 py-1 text-right"
+                      />
+                    ) : (
+                      `$${Number(p.costoPromedio || 0).toLocaleString()}`
+                    )}
                   </td>
 
                   {editando === p.codigo ? (
