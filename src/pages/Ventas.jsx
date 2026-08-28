@@ -5,6 +5,10 @@ import {
   writeBatch,
   serverTimestamp,
   increment,
+  query,
+  where,
+  getDocs,
+  Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { obtenerSiguienteNumeroFactura } from '../lib/contadores'
@@ -21,6 +25,8 @@ const METODOS_PAGO = [
   { id: 'addi', label: 'Addi' },
 ]
 
+const META_DIARIA = 410000
+
 
 export default function Ventas() {
   const { productos, buscar, aplicarAjustesLocales } = useProductosCtx()
@@ -34,8 +40,32 @@ export default function Ventas() {
   const [mensaje, setMensaje] = useState(null)
   const [ultimaVenta, setUltimaVenta] = useState(null)
   const ventaParaImprimirRef = useRef(null)
+  const [totalHoy, setTotalHoy] = useState(0)
+  const [mostrarFelicitacion, setMostrarFelicitacion] = useState(false)
+  const yaFelicitadoRef = useRef(false)
 
   const resultados = buscar(textoBusqueda)
+
+  // Carga el total vendido hoy una sola vez, al entrar al módulo, para saber
+  // desde dónde arrancar el seguimiento de la meta diaria.
+  useEffect(() => {
+    async function cargarTotalHoy() {
+      const inicioDia = new Date()
+      inicioDia.setHours(0, 0, 0, 0)
+      const q = query(
+        collection(db, 'ventas'),
+        where('fecha', '>=', Timestamp.fromDate(inicioDia))
+      )
+      const snapshot = await getDocs(q)
+      const total = snapshot.docs
+        .map((d) => d.data())
+        .filter((v) => v.anulada !== true)
+        .reduce((acc, v) => acc + (Number(v.total) || 0), 0)
+      setTotalHoy(total)
+      if (total >= META_DIARIA) yaFelicitadoRef.current = true
+    }
+    cargarTotalHoy()
+  }, [])
 
   // Imprime automáticamente en cuanto el ticket de la nueva venta ya está
   // renderizado en el DOM (ultimaVenta cambia después de guardar).
@@ -202,6 +232,13 @@ export default function Ventas() {
       })
 
       setMensaje({ tipo: 'exito', texto: `Venta registrada por $${total.toLocaleString()}.` })
+
+      const nuevoTotalHoy = totalHoy + total
+      setTotalHoy(nuevoTotalHoy)
+      if (!esAdmin && nuevoTotalHoy >= META_DIARIA && !yaFelicitadoRef.current) {
+        yaFelicitadoRef.current = true
+        setMostrarFelicitacion(true)
+      }
       setItems([])
       setPagos([{ metodo: 'efectivo', monto: '' }])
       aplicarAjustesLocales(
@@ -441,6 +478,27 @@ export default function Ventas() {
       >
         {guardando ? 'Guardando...' : 'Registrar venta'}
       </button>
+
+      {mostrarFelicitacion && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-emerald-700 rounded-2xl p-8 max-w-sm text-center shadow-2xl">
+            <p className="text-5xl mb-3">🎉</p>
+            <h2 className="text-xl font-display font-bold text-emerald-400 mb-2">
+              ¡Meta del día alcanzada!
+            </h2>
+            <p className="text-slate-300 mb-6">
+              Superaste los ${META_DIARIA.toLocaleString()} en ventas de hoy. ¡Excelente
+              trabajo!
+            </p>
+            <button
+              onClick={() => setMostrarFelicitacion(false)}
+              className="bg-brand text-white px-5 py-2.5 rounded-lg hover:bg-brand-dark font-medium"
+            >
+              ¡Gracias!
+            </button>
+          </div>
+        </div>
+      )}
 
       <TicketVenta venta={ultimaVenta} />
     </div>
