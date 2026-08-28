@@ -59,19 +59,19 @@ const RUTAS_SOLO_ADMIN = [
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Inicio', icon: LayoutDashboard, admin: true },
+  { to: '/caja', label: 'Caja', icon: Wallet, admin: false },
   { to: '/', label: 'Ventas', icon: ShoppingCart, admin: false },
   { to: '/compras', label: 'Compras', icon: Truck, admin: true },
-  { to: '/inventario', label: 'Inventario', icon: Package, admin: true },
+  { to: '/reportes', label: 'Reportes', icon: BarChart3, admin: true },
   { to: '/historial', label: 'Historial ventas', icon: History, admin: false },
   { to: '/historial-compras', label: 'Historial compras', icon: FileClock, admin: true },
-  { to: '/caja', label: 'Caja', icon: Wallet, admin: false },
   { to: '/historial-caja', label: 'Historial de caja', icon: Clock, admin: false },
+  { to: '/inventario', label: 'Inventario', icon: Package, admin: true },
   { to: '/devoluciones', label: 'Devoluciones y cambios', icon: RotateCcw, admin: false },
-  { to: '/reportes', label: 'Reportes', icon: BarChart3, admin: true },
   { to: '/notas', label: 'Notas', icon: StickyNote, admin: false },
+  { to: '/sugerencia-compra', label: 'Sugerencia de compra', icon: TrendingUp, admin: true },
   { to: '/importar', label: 'Importar Excel', icon: FileSpreadsheet, admin: true, accent: true },
   { to: '/exportar', label: 'Exportar datos', icon: Download, admin: true },
-  { to: '/sugerencia-compra', label: 'Sugerencia de compra', icon: TrendingUp, admin: true },
   { to: '/ventas-credito', label: 'Ventas Addi/Sistecrédito', icon: CreditCard, admin: true },
 ]
 
