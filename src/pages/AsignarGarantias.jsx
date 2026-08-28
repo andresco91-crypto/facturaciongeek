@@ -15,7 +15,7 @@ function normalizar(texto) {
 
 function clasificar(nombre) {
   const n = normalizar(nombre)
-  if (n.includes('cargador laptop')) return '12 meses'
+  if (n.includes('cargador laptop') || n.includes('cargador ldsmart')) return '12 meses'
   if (n.includes('muneco') || n.includes('carro')) return ''
   return '3 meses'
 }
@@ -38,7 +38,7 @@ export default function AsignarGarantias() {
   async function aplicarCambios() {
     const confirmado = confirm(
       `Esto va a sobrescribir la garantía de los ${productos.length} productos del catálogo:\n\n` +
-        `• ${clasificacion['12 meses'].length} con "cargador laptop" → 12 meses\n` +
+        `• ${clasificacion['12 meses'].length} con "cargador laptop"/"cargador ldsmart" → 12 meses\n` +
         `• ${clasificacion[''].length} con "muñecos"/"carros" → en blanco\n` +
         `• ${clasificacion['3 meses'].length} restantes → 3 meses\n\n` +
         `¿Confirmas que quieres aplicar esto a todo el catálogo?`
@@ -88,7 +88,7 @@ export default function AsignarGarantias() {
 
       <div className="bg-card border border-line rounded-xl p-5 mb-6 space-y-3 text-sm">
         <div className="flex justify-between border-b border-line pb-2">
-          <span>Nombre contiene "cargador laptop" → <strong>12 meses</strong></span>
+          <span>Nombre contiene "cargador laptop" o "cargador ldsmart" → <strong>12 meses</strong></span>
           <span className="text-brand-light font-semibold">
             {clasificacion['12 meses'].length} producto(s)
           </span>
