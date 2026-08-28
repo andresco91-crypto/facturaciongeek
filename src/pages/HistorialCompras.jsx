@@ -12,6 +12,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { useProductosCtx } from '../hooks/useProductosContext'
 
 function hoyISO() {
   return new Date().toISOString().slice(0, 10)
@@ -24,6 +25,11 @@ function formatearFecha(fecha) {
 }
 
 export default function HistorialCompras() {
+  const { productos } = useProductosCtx()
+  const precioPublicoPorCodigo = Object.fromEntries(
+    productos.map((p) => [p.codigo, p.precioPublico || 0])
+  )
+
   const [desde, setDesde] = useState(hoyISO())
   const [hasta, setHasta] = useState(hoyISO())
   const [compras, setCompras] = useState([])
@@ -266,6 +272,7 @@ export default function HistorialCompras() {
                             <tr className="text-muted">
                               <th className="text-left font-normal">Código</th>
                               <th className="text-left font-normal">Producto</th>
+                              <th className="text-right font-normal">Precio público</th>
                               <th className="text-right font-normal">Cant.</th>
                               <th className="text-right font-normal">Costo unitario</th>
                               <th className="text-right font-normal">Subtotal</th>
@@ -276,6 +283,9 @@ export default function HistorialCompras() {
                               <tr key={idx} className="border-t border-line">
                                 <td className="py-1 text-muted">{item.codigo}</td>
                                 <td className="py-1">{item.nombre}</td>
+                                <td className="py-1 text-right text-muted">
+                                  ${Number(precioPublicoPorCodigo[item.codigo] || 0).toLocaleString()}
+                                </td>
                                 <td className="py-1 text-right">
                                   <input
                                     type="number"
@@ -338,6 +348,7 @@ export default function HistorialCompras() {
                             <tr className="text-muted">
                               <th className="text-left font-normal">Código</th>
                               <th className="text-left font-normal">Producto</th>
+                              <th className="text-right font-normal">Precio público</th>
                               <th className="text-right font-normal">Cant.</th>
                               <th className="text-right font-normal">Costo unitario</th>
                               <th className="text-right font-normal">Subtotal</th>
@@ -348,6 +359,9 @@ export default function HistorialCompras() {
                               <tr key={idx} className="border-t border-line">
                                 <td className="py-1 text-muted">{item.codigo}</td>
                                 <td className="py-1">{item.nombre}</td>
+                                <td className="py-1 text-right text-muted">
+                                  ${Number(precioPublicoPorCodigo[item.codigo] || 0).toLocaleString()}
+                                </td>
                                 <td className="py-1 text-right">{item.cantidad}</td>
                                 <td className="py-1 text-right">
                                   ${Number(item.costoUnitario).toLocaleString()}
