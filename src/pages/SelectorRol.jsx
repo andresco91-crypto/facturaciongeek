@@ -2,18 +2,28 @@ import { useState } from 'react'
 import { useRole } from '../hooks/useRole'
 
 export default function SelectorRol() {
-  const { entrarComoTrabajador, intentarEntrarComoAdmin } = useRole()
-  const [mostrarPin, setMostrarPin] = useState(false)
+  const { intentarEntrarComoAdmin, intentarEntrarComoTrabajador } = useRole()
+  const [rolPendiente, setRolPendiente] = useState(null) // null | 'admin' | 'trabajador'
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
 
-  function handleIntentarAdmin(e) {
+  function handleIntentar(e) {
     e.preventDefault()
-    const exito = intentarEntrarComoAdmin(pin)
+    const exito =
+      rolPendiente === 'admin'
+        ? intentarEntrarComoAdmin(pin)
+        : intentarEntrarComoTrabajador(pin)
+
     if (!exito) {
       setError('PIN incorrecto.')
       setPin('')
     }
+  }
+
+  function volver() {
+    setRolPendiente(null)
+    setPin('')
+    setError('')
   }
 
   return (
@@ -26,32 +36,29 @@ export default function SelectorRol() {
         </div>
         <h1 className="text-xl font-display font-bold mb-6">¿Quién va a usar el sistema?</h1>
 
-        {!mostrarPin ? (
+        {!rolPendiente ? (
           <div className="space-y-3">
             <button
-              onClick={() => {
-                setMostrarPin(true)
-                setError('')
-              }}
+              onClick={() => setRolPendiente('admin')}
               className="w-full bg-brand text-white py-3 rounded-lg hover:bg-brand-dark font-medium"
             >
               Administrador
             </button>
             <button
-              onClick={entrarComoTrabajador}
+              onClick={() => setRolPendiente('trabajador')}
               className="w-full bg-panel text-slate-200 py-3 rounded-lg hover:bg-line border border-line font-medium"
             >
               Trabajador
             </button>
           </div>
         ) : (
-          <form onSubmit={handleIntentarAdmin}>
+          <form onSubmit={handleIntentar}>
             <label className="block text-sm font-medium text-slate-200 mb-2">
-              Ingresa el PIN de administrador
+              Ingresa el PIN de {rolPendiente === 'admin' ? 'administrador' : 'trabajador'}
             </label>
             <input
               type="password"
-              inputMode="numeric"
+              inputMode="text"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               autoFocus
@@ -66,11 +73,7 @@ export default function SelectorRol() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setMostrarPin(false)
-                setPin('')
-                setError('')
-              }}
+              onClick={volver}
               className="w-full text-sm text-muted hover:underline"
             >
               Volver
