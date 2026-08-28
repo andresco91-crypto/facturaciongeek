@@ -2,21 +2,26 @@ import { createContext, useContext, useState } from 'react'
 
 const RoleContext = createContext(null)
 
-// El PIN de administrador se valida aquí, del lado del cliente. Es suficiente
-// para evitar que un trabajador entre por error a módulos administrativos,
-// pero no es un mecanismo de seguridad fuerte (el código es visible en el navegador).
-const PIN_ADMINISTRADOR = '1234'
+// Los PIN se validan aquí, del lado del cliente. Son suficientes para evitar
+// que alguien entre por error al rol equivocado, pero no son un mecanismo de
+// seguridad fuerte (el código es visible en el navegador).
+const PIN_ADMINISTRADOR = 'admin123'
+const PIN_TRABAJADOR = 'geek123'
 
 export function RoleProvider({ children }) {
   const [rol, setRol] = useState(null) // null | 'admin' | 'trabajador'
 
-  function entrarComoTrabajador() {
-    setRol('trabajador')
-  }
-
   function intentarEntrarComoAdmin(pin) {
     if (pin === PIN_ADMINISTRADOR) {
       setRol('admin')
+      return true
+    }
+    return false
+  }
+
+  function intentarEntrarComoTrabajador(pin) {
+    if (pin === PIN_TRABAJADOR) {
+      setRol('trabajador')
       return true
     }
     return false
@@ -28,7 +33,12 @@ export function RoleProvider({ children }) {
 
   return (
     <RoleContext.Provider
-      value={{ rol, entrarComoTrabajador, intentarEntrarComoAdmin, cambiarUsuario }}
+      value={{
+        rol,
+        intentarEntrarComoAdmin,
+        intentarEntrarComoTrabajador,
+        cambiarUsuario,
+      }}
     >
       {children}
     </RoleContext.Provider>
