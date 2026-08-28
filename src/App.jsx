@@ -70,6 +70,7 @@ const NAV_ITEMS = [
   { to: '/exportar', label: 'Exportar datos', icon: Download, admin: true },
   { to: '/sugerencia-compra', label: 'Sugerencia de compra', icon: TrendingUp, admin: true },
   { to: '/ventas-credito', label: 'Ventas Addi/Sistecrédito', icon: CreditCard, admin: true },
+  { to: '/asignar-garantias', label: 'Asignar garantías', icon: ShieldCheck, admin: true },
 ]
 
 function RutaProtegida({ children }) {
