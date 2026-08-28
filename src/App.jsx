@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   RotateCcw,
   ShieldCheck,
+  Clock,
   Menu,
   LogOut,
   Users,
@@ -42,6 +43,7 @@ import VentasCredito from './pages/VentasCredito'
 import Dashboard from './pages/Dashboard'
 import Devoluciones from './pages/Devoluciones'
 import AsignarGarantias from './pages/AsignarGarantias'
+import HistorialCaja from './pages/HistorialCaja'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -63,6 +65,7 @@ const NAV_ITEMS = [
   { to: '/historial', label: 'Historial ventas', icon: History, admin: false },
   { to: '/historial-compras', label: 'Historial compras', icon: FileClock, admin: true },
   { to: '/caja', label: 'Caja', icon: Wallet, admin: false },
+  { to: '/historial-caja', label: 'Historial de caja', icon: Clock, admin: false },
   { to: '/devoluciones', label: 'Devoluciones y cambios', icon: RotateCcw, admin: false },
   { to: '/reportes', label: 'Reportes', icon: BarChart3, admin: true },
   { to: '/notas', label: 'Notas', icon: StickyNote, admin: false },
@@ -70,7 +73,6 @@ const NAV_ITEMS = [
   { to: '/exportar', label: 'Exportar datos', icon: Download, admin: true },
   { to: '/sugerencia-compra', label: 'Sugerencia de compra', icon: TrendingUp, admin: true },
   { to: '/ventas-credito', label: 'Ventas Addi/Sistecrédito', icon: CreditCard, admin: true },
-  { to: '/asignar-garantias', label: 'Asignar garantías', icon: ShieldCheck, admin: true },
 ]
 
 function RutaProtegida({ children }) {
@@ -245,6 +247,7 @@ function AppLayout() {
               }
             />
             <Route path="/caja" element={<Caja />} />
+            <Route path="/historial-caja" element={<HistorialCaja />} />
             <Route path="/devoluciones" element={<Devoluciones />} />
             <Route
               path="/reportes"
