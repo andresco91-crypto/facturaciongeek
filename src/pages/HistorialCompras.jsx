@@ -264,6 +264,7 @@ export default function HistorialCompras() {
                         <table className="w-full mb-3">
                           <thead>
                             <tr className="text-muted">
+                              <th className="text-left font-normal">Código</th>
                               <th className="text-left font-normal">Producto</th>
                               <th className="text-right font-normal">Cant.</th>
                               <th className="text-right font-normal">Costo unitario</th>
@@ -273,6 +274,7 @@ export default function HistorialCompras() {
                           <tbody>
                             {itemsEdicion.map((item, idx) => (
                               <tr key={idx} className="border-t border-line">
+                                <td className="py-1 text-muted">{item.codigo}</td>
                                 <td className="py-1">{item.nombre}</td>
                                 <td className="py-1 text-right">
                                   <input
@@ -334,6 +336,7 @@ export default function HistorialCompras() {
                         <table className="w-full mb-3">
                           <thead>
                             <tr className="text-muted">
+                              <th className="text-left font-normal">Código</th>
                               <th className="text-left font-normal">Producto</th>
                               <th className="text-right font-normal">Cant.</th>
                               <th className="text-right font-normal">Costo unitario</th>
@@ -343,6 +346,7 @@ export default function HistorialCompras() {
                           <tbody>
                             {compra.items?.map((item, idx) => (
                               <tr key={idx} className="border-t border-line">
+                                <td className="py-1 text-muted">{item.codigo}</td>
                                 <td className="py-1">{item.nombre}</td>
                                 <td className="py-1 text-right">{item.cantidad}</td>
                                 <td className="py-1 text-right">
