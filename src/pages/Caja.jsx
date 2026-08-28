@@ -106,6 +106,13 @@ export default function Caja() {
 
   async function handleCerrarTurno() {
     if (!resumen) return
+    if (montoFinalEfectivo === '' || montoFinalEfectivo === null || isNaN(Number(montoFinalEfectivo))) {
+      setMensaje({
+        tipo: 'error',
+        texto: 'Debes escribir el dinero en efectivo contado para poder cerrar el turno.',
+      })
+      return
+    }
     setProcesando(true)
     setMensaje(null)
 
@@ -375,7 +382,7 @@ export default function Caja() {
             )}
 
             <label className="block text-sm font-medium text-slate-200 mb-1">
-              Monto contado físicamente en caja (solo efectivo)
+              Monto contado físicamente en caja (solo efectivo) <span className="text-red-400">*obligatorio</span>
             </label>
             <input
               type="number"
@@ -388,7 +395,7 @@ export default function Caja() {
             <div>
               <button
                 onClick={handleCerrarTurno}
-                disabled={procesando || !resumen}
+                disabled={procesando || !resumen || montoFinalEfectivo === ''}
                 className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
               >
                 {procesando ? 'Cerrando...' : 'Cerrar turno y cuadrar caja'}
