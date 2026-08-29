@@ -81,6 +81,15 @@ export function ProductosProvider({ children }) {
     )
   }
 
+  // Reemplaza el código de un producto en memoria: quita el registro con el
+  // código viejo y agrega uno nuevo con el código actualizado.
+  function reemplazarCodigoLocal(codigoViejo, productoActualizado) {
+    setProductos((prev) => [
+      ...prev.filter((p) => p.codigo !== codigoViejo),
+      productoActualizado,
+    ])
+  }
+
   return (
     <ProductosContext.Provider
       value={{
@@ -92,6 +101,7 @@ export function ProductosProvider({ children }) {
         agregarProductoLocal,
         actualizarProductoLocal,
         actualizarVariosLocal,
+        reemplazarCodigoLocal,
       }}
     >
       {children}
