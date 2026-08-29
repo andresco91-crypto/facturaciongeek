@@ -6,6 +6,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { generarSiguienteCodigo } from '../lib/codigos'
 import { useProductosCtx } from '../hooks/useProductosContext'
 import { useCompraDraft } from '../hooks/useCompraDraft'
 
@@ -41,7 +42,7 @@ export default function Compras() {
   function agregarProductoNuevo() {
     const nombre = textoBusqueda.trim()
     if (!nombre) return
-    const codigoNuevo = generarCodigoTemporal()
+    const codigoNuevo = generarSiguienteCodigo(productos)
     setItems([
       ...items,
       {
@@ -55,10 +56,6 @@ export default function Compras() {
       },
     ])
     setTextoBusqueda('')
-  }
-
-  function generarCodigoTemporal() {
-    return 'NUEVO-' + Date.now().toString().slice(-8)
   }
 
   function actualizarItem(index, campo, valor) {
