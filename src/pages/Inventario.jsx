@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useProductosCtx } from '../hooks/useProductosContext'
 
 export default function Inventario() {
-  const { productos, cargando, buscar, actualizarProductoLocal } = useProductosCtx()
+  const { productos, cargando, buscar, actualizarProductoLocal, reemplazarCodigoLocal } = useProductosCtx()
   const [textoBusqueda, setTextoBusqueda] = useState('')
   const [filtroStock, setFiltroStock] = useState('todos') // todos | con-stock | agotados
   const [editando, setEditando] = useState(null) // codigo del producto en edición
@@ -35,6 +35,7 @@ export default function Inventario() {
   function empezarEdicion(producto) {
     setEditando(producto.codigo)
     setValores({
+      codigo: producto.codigo ?? '',
       nombre: producto.nombre ?? '',
       precioPublico: producto.precioPublico ?? 0,
       precioMayorista: producto.precioMayorista ?? 0,
@@ -50,15 +51,23 @@ export default function Inventario() {
     setValores({})
   }
 
-  async function guardarEdicion(codigo) {
+  async function guardarEdicion(codigoOriginal) {
+    const nuevoCodigo = String(valores.codigo || '').trim()
+
     if (!String(valores.nombre || '').trim()) {
       setMensaje({ tipo: 'error', texto: 'El nombre no puede quedar vacío.' })
       return
     }
+    if (!nuevoCodigo) {
+      setMensaje({ tipo: 'error', texto: 'El código no puede quedar vacío.' })
+      return
+    }
+
     setGuardando(true)
     setMensaje(null)
     try {
       const cambios = {
+        codigo: nuevoCodigo,
         nombre: String(valores.nombre).trim(),
         precioPublico: Number(valores.precioPublico) || 0,
         precioMayorista: Number(valores.precioMayorista) || 0,
@@ -66,10 +75,40 @@ export default function Inventario() {
         garantia: String(valores.garantia || '').trim(),
         stock: Number(valores.stock) || 0,
       }
-      await updateDoc(doc(db, 'productos', codigo), cambios)
-      setMensaje({ tipo: 'exito', texto: 'Producto actualizado.' })
+
+      const cambioDeCodigo = nuevoCodigo !== codigoOriginal
+
+      if (!cambioDeCodigo) {
+        // Caso normal: mismo código, solo se actualizan los campos
+        await updateDoc(doc(db, 'productos', codigoOriginal), cambios)
+        actualizarProductoLocal(codigoOriginal, cambios)
+      } else {
+        // Cambio de código = cambia el ID del documento en Firestore.
+        // Primero verificamos que el nuevo código no esté ya en uso.
+        const yaExisteLocal = productos.some((p) => p.codigo === nuevoCodigo)
+        if (yaExisteLocal) {
+          throw new Error(`El código "${nuevoCodigo}" ya está en uso por otro producto.`)
+        }
+        const snapNuevo = await getDoc(doc(db, 'productos', nuevoCodigo))
+        if (snapNuevo.exists()) {
+          throw new Error(`El código "${nuevoCodigo}" ya está en uso por otro producto.`)
+        }
+
+        const batch = writeBatch(db)
+        batch.set(doc(db, 'productos', nuevoCodigo), cambios)
+        batch.delete(doc(db, 'productos', codigoOriginal))
+        await batch.commit()
+
+        reemplazarCodigoLocal(codigoOriginal, cambios)
+      }
+
+      setMensaje({
+        tipo: 'exito',
+        texto: cambioDeCodigo
+          ? `Producto actualizado. El código cambió a "${nuevoCodigo}". Las ventas y compras ya registradas conservan el código anterior en su historial.`
+          : 'Producto actualizado.',
+      })
       setEditando(null)
-      actualizarProductoLocal(codigo, cambios)
     } catch (err) {
       setMensaje({ tipo: 'error', texto: 'Error al guardar: ' + err.message })
     } finally {
@@ -154,7 +193,18 @@ export default function Inventario() {
             <tbody>
               {listaFiltrada.map((p) => (
                 <tr key={p.codigo} className="border-t">
-                  <td className="p-2 text-muted">{p.codigo}</td>
+                  <td className="p-2 text-muted">
+                    {editando === p.codigo ? (
+                      <input
+                        type="text"
+                        value={valores.codigo}
+                        onChange={(e) => setValores({ ...valores, codigo: e.target.value })}
+                        className="w-24 border border-line rounded-lg px-2 py-1"
+                      />
+                    ) : (
+                      p.codigo
+                    )}
+                  </td>
                   <td className="p-2">
                     {editando === p.codigo ? (
                       <input
