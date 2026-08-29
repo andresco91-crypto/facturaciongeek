@@ -93,6 +93,7 @@ export default function Ventas() {
           precioPublico: producto.precioPublico || 0,
           precioMayorista: producto.precioMayorista || 0,
           costoPromedio: producto.costoPromedio || 0,
+          garantia: producto.garantia || '',
         },
       ]
     })
@@ -209,6 +210,7 @@ export default function Ventas() {
         cantidad: Number(i.cantidad) || 0,
         precioUnitario: Number(i.precioUnitario) || 0,
         tipoPrecio: i.tipoPrecio,
+        garantia: i.garantia || '',
       }))
 
       const ventaRef = doc(collection(db, 'ventas'))
