@@ -35,6 +35,7 @@ export default function Inventario() {
   function empezarEdicion(producto) {
     setEditando(producto.codigo)
     setValores({
+      nombre: producto.nombre ?? '',
       precioPublico: producto.precioPublico ?? 0,
       precioMayorista: producto.precioMayorista ?? 0,
       costoPromedio: producto.costoPromedio ?? 0,
@@ -50,10 +51,15 @@ export default function Inventario() {
   }
 
   async function guardarEdicion(codigo) {
+    if (!String(valores.nombre || '').trim()) {
+      setMensaje({ tipo: 'error', texto: 'El nombre no puede quedar vacío.' })
+      return
+    }
     setGuardando(true)
     setMensaje(null)
     try {
       const cambios = {
+        nombre: String(valores.nombre).trim(),
         precioPublico: Number(valores.precioPublico) || 0,
         precioMayorista: Number(valores.precioMayorista) || 0,
         costoPromedio: Number(valores.costoPromedio) || 0,
@@ -149,7 +155,18 @@ export default function Inventario() {
               {listaFiltrada.map((p) => (
                 <tr key={p.codigo} className="border-t">
                   <td className="p-2 text-muted">{p.codigo}</td>
-                  <td className="p-2">{p.nombre}</td>
+                  <td className="p-2">
+                    {editando === p.codigo ? (
+                      <input
+                        type="text"
+                        value={valores.nombre}
+                        onChange={(e) => setValores({ ...valores, nombre: e.target.value })}
+                        className="w-full min-w-[160px] border border-line rounded-lg px-2 py-1"
+                      />
+                    ) : (
+                      p.nombre
+                    )}
+                  </td>
                   <td className="p-2 text-right text-muted">
                     {editando === p.codigo ? (
                       <input
