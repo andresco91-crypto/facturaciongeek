@@ -56,6 +56,9 @@ export default function TicketVenta({ venta }) {
                 ${(item.cantidad * item.precioUnitario).toLocaleString()}
               </span>
             </div>
+            {item.garantia && (
+              <div style={{ fontSize: '12px' }}>Garantía: {item.garantia}</div>
+            )}
           </div>
         ))}
 
