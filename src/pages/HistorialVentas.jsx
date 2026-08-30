@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   collection,
   query,
@@ -12,6 +12,8 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { useTurno } from '../hooks/useTurno'
+import { useDevoluciones } from '../hooks/useDevoluciones'
 
 function hoyISO() {
   // Fecha local del navegador, no UTC (toISOString desplaza el día en
@@ -30,6 +32,11 @@ function formatearFecha(fecha) {
 }
 
 export default function HistorialVentas() {
+  const { turno, obtenerVentasDelTurno } = useTurno()
+  const { obtenerDevolucionesDelTurno } = useDevoluciones()
+  const [efectivoDisponible, setEfectivoDisponible] = useState(null)
+  const [cargandoEfectivo, setCargandoEfectivo] = useState(false)
+
   const [desde, setDesde] = useState(hoyISO())
   const [hasta, setHasta] = useState(hoyISO())
   const [ventas, setVentas] = useState([])
@@ -38,6 +45,44 @@ export default function HistorialVentas() {
   const [anulando, setAnulando] = useState(null)
   const [error, setError] = useState('')
   const [buscado, setBuscado] = useState(false)
+
+  useEffect(() => {
+    if (turno) {
+      calcularEfectivoDisponible()
+    } else {
+      setEfectivoDisponible(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turno?.id])
+
+  async function calcularEfectivoDisponible() {
+    setCargandoEfectivo(true)
+    try {
+      const [ventasTurno, devoluciones] = await Promise.all([
+        obtenerVentasDelTurno(turno.id),
+        obtenerDevolucionesDelTurno(turno.id),
+      ])
+
+      let efectivoVentas = 0
+      for (const v of ventasTurno) {
+        for (const pago of v.pagos || []) {
+          if (pago.metodo === 'efectivo') efectivoVentas += pago.monto
+        }
+      }
+
+      let efectivoDevoluciones = 0
+      for (const dev of devoluciones) {
+        if (dev.metodoDiferencia === 'efectivo' && dev.diferencia) {
+          efectivoDevoluciones += dev.diferencia
+        }
+      }
+
+      const total = Number(turno.montoInicial) + efectivoVentas + efectivoDevoluciones
+      setEfectivoDisponible(total)
+    } finally {
+      setCargandoEfectivo(false)
+    }
+  }
 
   async function buscarVentas() {
     setCargando(true)
@@ -98,6 +143,10 @@ export default function HistorialVentas() {
       setVentas((prev) =>
         prev.map((v) => (v.id === venta.id ? { ...v, anulada: true } : v))
       )
+
+      if (turno && venta.turnoId === turno.id) {
+        calcularEfectivoDisponible()
+      }
     } catch (err) {
       setError('Error al anular la venta: ' + err.message)
     } finally {
@@ -108,6 +157,26 @@ export default function HistorialVentas() {
   return (
     <div className="p-6 max-w-4xl">
       <h1 className="text-2xl font-bold mb-4">Historial de ventas</h1>
+
+      {turno && (
+        <div className="bg-emerald-950/30 border border-emerald-800 rounded-xl p-4 mb-6 flex items-center justify-between">
+          <div>
+            <p className="text-emerald-400 text-sm font-medium">Efectivo disponible en caja</p>
+            <p className="text-xs text-muted">Base + ventas en efectivo del turno actual</p>
+          </div>
+          <p className="text-2xl font-display font-bold text-emerald-400">
+            {cargandoEfectivo || efectivoDisponible === null
+              ? '...'
+              : `$${efectivoDisponible.toLocaleString()}`}
+          </p>
+        </div>
+      )}
+
+      {!turno && (
+        <div className="bg-amber-950/40 border border-amber-800 text-amber-300 rounded-xl p-3 mb-6 text-sm">
+          No hay un turno de caja abierto ahora mismo.
+        </div>
+      )}
 
       <div className="bg-card border border-line rounded p-4 mb-6 flex flex-wrap gap-4 items-end">
         <div>
@@ -148,6 +217,32 @@ export default function HistorialVentas() {
           <p className="text-sm text-muted mb-2">
             {ventas.length} venta(s) encontrada(s)
           </p>
+
+          {(() => {
+            const totalEfectivo = ventas
+              .filter((v) => v.anulada !== true)
+              .reduce((acc, v) => {
+                const efectivoVenta = (v.pagos || [])
+                  .filter((p) => p.metodo === 'efectivo')
+                  .reduce((a, p) => a + (Number(p.monto) || 0), 0)
+                return acc + efectivoVenta
+              }, 0)
+
+            return (
+              <div className="bg-amber-950/40 border border-amber-800 rounded-xl p-4 mb-4">
+                <p className="text-amber-300 font-medium text-sm mb-1">
+                  💰 Efectivo esperado en caja (solo por estas ventas)
+                </p>
+                <p className="text-2xl font-display font-bold text-amber-200">
+                  ${totalEfectivo.toLocaleString()}
+                </p>
+                <p className="text-amber-300/80 text-xs mt-1">
+                  Compara este valor con el dinero físico que hay en caja antes de cerrar el
+                  turno. No incluye tarjeta, transferencia, Addi ni Sistecrédito.
+                </p>
+              </div>
+            )
+          })()}
 
           <div className="space-y-2">
             {ventas.map((venta) => (
