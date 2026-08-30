@@ -14,7 +14,13 @@ import {
 import { db } from '../lib/firebase'
 
 function hoyISO() {
-  return new Date().toISOString().slice(0, 10)
+  // Fecha local del navegador, no UTC (toISOString desplaza el día en
+  // zonas horarias como Colombia, UTC-5).
+  const d = new Date()
+  const anio = d.getFullYear()
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${anio}-${mes}-${dia}`
 }
 
 function formatearFecha(fecha) {
