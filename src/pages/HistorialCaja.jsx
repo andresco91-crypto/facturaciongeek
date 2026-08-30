@@ -9,14 +9,23 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 
+// Fecha local del navegador, no UTC (toISOString desplaza el día en
+// zonas horarias como Colombia, UTC-5).
+function fechaLocalISO(d) {
+  const anio = d.getFullYear()
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${anio}-${mes}-${dia}`
+}
+
 function hace7DiasISO() {
   const d = new Date()
   d.setDate(d.getDate() - 7)
-  return d.toISOString().slice(0, 10)
+  return fechaLocalISO(d)
 }
 
 function hoyISO() {
-  return new Date().toISOString().slice(0, 10)
+  return fechaLocalISO(new Date())
 }
 
 function formatearFecha(fecha) {
