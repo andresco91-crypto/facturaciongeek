@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShoppingCart,
   Truck,
@@ -44,6 +44,7 @@ import Dashboard from './pages/Dashboard'
 import Devoluciones from './pages/Devoluciones'
 import AsignarGarantias from './pages/AsignarGarantias'
 import HistorialCaja from './pages/HistorialCaja'
+import { useRecordatorioCaja } from './hooks/useRecordatorioCaja'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -146,9 +147,11 @@ function AppLayout() {
   const { cerrarSesion } = useAuth()
   const { rol, cambiarUsuario } = useRole()
   const location = useLocation()
+  const navigate = useNavigate()
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [perfilAbierto, setPerfilAbierto] = useState(false)
   const esAdmin = rol === 'admin'
+  const { recordatorioActivo, cerrarRecordatorio } = useRecordatorioCaja()
 
   const itemsVisibles = NAV_ITEMS.filter((item) => !item.admin || esAdmin)
 
@@ -309,6 +312,38 @@ function AppLayout() {
           </Routes>
         </main>
       </div>
+
+      {recordatorioActivo && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-amber-700 rounded-2xl p-8 max-w-sm text-center shadow-2xl">
+            <p className="text-5xl mb-3">⏰</p>
+            <h2 className="text-xl font-display font-bold text-amber-400 mb-2">
+              Hora de hacer caja
+            </h2>
+            <p className="text-slate-300 mb-6">
+              Son las {recordatorioActivo}. Verifica que el dinero y las ventas registradas
+              estén en orden.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => {
+                  cerrarRecordatorio()
+                  navigate('/caja')
+                }}
+                className="bg-brand text-white px-5 py-2.5 rounded-lg hover:bg-brand-dark font-medium"
+              >
+                Ir a Caja
+              </button>
+              <button
+                onClick={cerrarRecordatorio}
+                className="bg-panel border border-line text-slate-300 px-5 py-2.5 rounded-lg hover:bg-line font-medium"
+              >
+                Ahora no
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
