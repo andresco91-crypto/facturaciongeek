@@ -2,17 +2,20 @@ import { useState, useEffect } from 'react'
 import { useTurno } from '../hooks/useTurno'
 import { useGastos } from '../hooks/useGastos'
 import { useDevoluciones } from '../hooks/useDevoluciones'
+import { useConteosCaja } from '../hooks/useConteosCaja'
 
 export default function Caja() {
   const { turno, cargando, abrirTurno, editarMontoInicial, cerrarTurno, obtenerVentasDelTurno } = useTurno()
   const { registrarGasto } = useGastos()
   const { obtenerDevolucionesDelTurno } = useDevoluciones()
+  const { obtenerConteosDelTurno } = useConteosCaja()
 
   const [montoInicial, setMontoInicial] = useState('')
   const [montoJornal, setMontoJornal] = useState('')
   const [montoFinalEfectivo, setMontoFinalEfectivo] = useState('')
   const [resumen, setResumen] = useState(null)
   const [devoluciones, setDevoluciones] = useState([])
+  const [conteos, setConteos] = useState([])
   const [cargandoResumen, setCargandoResumen] = useState(false)
   const [procesando, setProcesando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
@@ -30,10 +33,12 @@ export default function Caja() {
 
   async function cargarResumen() {
     setCargandoResumen(true)
-    const [ventas, listaDevoluciones] = await Promise.all([
+    const [ventas, listaDevoluciones, listaConteos] = await Promise.all([
       obtenerVentasDelTurno(turno.id),
       obtenerDevolucionesDelTurno(turno.id),
+      obtenerConteosDelTurno(turno.id),
     ])
+    setConteos(listaConteos)
 
     let efectivo = 0
     let tarjeta = 0
@@ -316,6 +321,22 @@ export default function Caja() {
                   <p className="font-semibold">${resumen.totalVentas.toLocaleString()}</p>
                 </div>
               </div>
+
+              {conteos.length > 0 && (
+                <div className="mt-3 bg-blue-950/30 border border-blue-800 rounded-lg p-3">
+                  <p className="text-blue-300 font-medium text-sm mb-2">
+                    Conteos de efectivo durante el turno
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {conteos.map((c) => (
+                      <div key={c.id} className="text-xs text-blue-200">
+                        <span className="font-medium">{c.hora}</span>: $
+                        {Number(c.monto).toLocaleString()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {devoluciones.length > 0 && (
                 <div className="mt-3 bg-amber-950/40 border border-amber-800 rounded-lg p-3">
