@@ -45,6 +45,8 @@ import Devoluciones from './pages/Devoluciones'
 import AsignarGarantias from './pages/AsignarGarantias'
 import HistorialCaja from './pages/HistorialCaja'
 import { useRecordatorioCaja } from './hooks/useRecordatorioCaja'
+import { useTurno } from './hooks/useTurno'
+import { useConteosCaja } from './hooks/useConteosCaja'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -151,9 +153,26 @@ function AppLayout() {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [perfilAbierto, setPerfilAbierto] = useState(false)
   const esAdmin = rol === 'admin'
-  const { recordatorioActivo, cerrarRecordatorio } = useRecordatorioCaja()
+  const { recordatorioActivo, posponerRecordatorio, confirmarConteo } = useRecordatorioCaja()
+  const { turno } = useTurno()
+  const { registrarConteo } = useConteosCaja()
+  const [montoConteo, setMontoConteo] = useState('')
+  const [guardandoConteo, setGuardandoConteo] = useState(false)
 
   const itemsVisibles = NAV_ITEMS.filter((item) => !item.admin || esAdmin)
+
+  async function handleGuardarConteo(irACaja) {
+    if (montoConteo === '') return
+    setGuardandoConteo(true)
+    try {
+      await registrarConteo(turno?.id, recordatorioActivo, montoConteo)
+      setMontoConteo('')
+      confirmarConteo()
+      if (irACaja) navigate('/caja')
+    } finally {
+      setGuardandoConteo(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -320,25 +339,41 @@ function AppLayout() {
             <h2 className="text-xl font-display font-bold text-amber-400 mb-2">
               Hora de hacer caja
             </h2>
-            <p className="text-slate-300 mb-6">
-              Son las {recordatorioActivo}. Verifica que el dinero y las ventas registradas
-              estén en orden.
+            <p className="text-slate-300 mb-4">
+              Son las {recordatorioActivo}. Escribe cuánto efectivo hay ahora mismo en caja.
+              Si no confirmas, este aviso vuelve a aparecer cada 5 minutos.
             </p>
-            <div className="flex gap-3 justify-center">
+
+            <input
+              type="number"
+              min="0"
+              value={montoConteo}
+              onChange={(e) => setMontoConteo(e.target.value)}
+              placeholder="Efectivo contado ahora"
+              autoFocus
+              className="w-full border border-line rounded-lg px-3 py-2 mb-4 text-center text-lg bg-panel"
+            />
+
+            <div className="flex flex-col gap-2">
               <button
-                onClick={() => {
-                  cerrarRecordatorio()
-                  navigate('/caja')
-                }}
-                className="bg-brand text-white px-5 py-2.5 rounded-lg hover:bg-brand-dark font-medium"
+                onClick={() => handleGuardarConteo(false)}
+                disabled={montoConteo === '' || guardandoConteo}
+                className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg hover:bg-emerald-700 font-medium disabled:opacity-50"
               >
-                Ir a Caja
+                {guardandoConteo ? 'Guardando...' : '✓ Guardar conteo'}
               </button>
               <button
-                onClick={cerrarRecordatorio}
+                onClick={() => handleGuardarConteo(true)}
+                disabled={montoConteo === '' || guardandoConteo}
+                className="bg-brand text-white px-5 py-2.5 rounded-lg hover:bg-brand-dark font-medium disabled:opacity-50"
+              >
+                Guardar e ir a Caja
+              </button>
+              <button
+                onClick={posponerRecordatorio}
                 className="bg-panel border border-line text-slate-300 px-5 py-2.5 rounded-lg hover:bg-line font-medium"
               >
-                Ahora no
+                Posponer 5 minutos
               </button>
             </div>
           </div>
