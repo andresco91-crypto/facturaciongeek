@@ -1,41 +1,64 @@
 import { useState, useEffect, useRef } from 'react'
 
 // Horas del día (formato 24h) en las que debe aparecer el recordatorio
-// de hacer un arqueo de caja y verificar que todo esté en orden.
+// de contar el efectivo y verificar que todo esté en orden.
 const HORAS_RECORDATORIO = ['15:30', '17:30', '19:30']
+const INTERVALO_REVISION_MS = 20000 // cada 20 segundos
+const POSPONER_MINUTOS = 5
 
 export function useRecordatorioCaja() {
   const [recordatorioActivo, setRecordatorioActivo] = useState(null) // null | 'HH:MM'
-  const mostradosHoyRef = useRef(new Set())
+
+  // slot = 'fechaDeHoy-HH:MM'. Una vez confirmado, no vuelve a aparecer hoy.
+  const resueltosRef = useRef(new Set())
+  // Próximo instante (timestamp) en el que cada slot puede volver a activarse.
+  const proximoIntentoRef = useRef({})
 
   useEffect(() => {
     function verificar() {
       const ahora = new Date()
-      const hoy = ahora.toDateString()
-      const horaActual =
-        String(ahora.getHours()).padStart(2, '0') +
-        ':' +
-        String(ahora.getMinutes()).padStart(2, '0')
+      const hoyStr = ahora.toDateString()
 
       for (const hora of HORAS_RECORDATORIO) {
-        const clave = `${hoy}-${hora}`
-        if (horaActual === hora && !mostradosHoyRef.current.has(clave)) {
-          mostradosHoyRef.current.add(clave)
+        const slot = `${hoyStr}-${hora}`
+        if (resueltosRef.current.has(slot)) continue
+
+        const [h, m] = hora.split(':').map(Number)
+        const programada = new Date(ahora)
+        programada.setHours(h, m, 0, 0)
+
+        if (ahora < programada) continue // esta hora del día todavía no llega
+
+        const proximoPermitido = proximoIntentoRef.current[slot] ?? programada.getTime()
+
+        if (ahora.getTime() >= proximoPermitido) {
           setRecordatorioActivo(hora)
+          // Si no se resuelve, vuelve a activarse en 5 minutos
+          proximoIntentoRef.current[slot] = ahora.getTime() + POSPONER_MINUTOS * 60 * 1000
+          break
         }
       }
     }
 
     verificar()
-    // Se revisa cada 20 segundos; suficiente para no pasarse del minuto exacto
-    // sin recargar la página constantemente.
-    const intervalo = setInterval(verificar, 20000)
+    const intervalo = setInterval(verificar, INTERVALO_REVISION_MS)
     return () => clearInterval(intervalo)
   }, [])
 
-  function cerrarRecordatorio() {
+  // Cierra el aviso por ahora, pero vuelve a aparecer en 5 minutos si sigue
+  // sin confirmarse (el temporizador ya quedó programado en "verificar").
+  function posponerRecordatorio() {
     setRecordatorioActivo(null)
   }
 
-  return { recordatorioActivo, cerrarRecordatorio }
+  // Marca la hora actual como confirmada: ya no vuelve a aparecer hoy.
+  function confirmarConteo() {
+    if (recordatorioActivo) {
+      const hoyStr = new Date().toDateString()
+      resueltosRef.current.add(`${hoyStr}-${recordatorioActivo}`)
+    }
+    setRecordatorioActivo(null)
+  }
+
+  return { recordatorioActivo, posponerRecordatorio, confirmarConteo }
 }
