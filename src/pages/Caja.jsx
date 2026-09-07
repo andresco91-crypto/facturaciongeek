@@ -33,50 +33,55 @@ export default function Caja() {
 
   async function cargarResumen() {
     setCargandoResumen(true)
-    const [ventas, listaDevoluciones, listaConteos] = await Promise.all([
-      obtenerVentasDelTurno(turno.id),
-      obtenerDevolucionesDelTurno(turno.id),
-      obtenerConteosDelTurno(turno.id),
-    ])
-    setConteos(listaConteos)
+    try {
+      const [ventas, listaDevoluciones, listaConteos] = await Promise.all([
+        obtenerVentasDelTurno(turno.id),
+        obtenerDevolucionesDelTurno(turno.id),
+        obtenerConteosDelTurno(turno.id),
+      ])
+      setConteos(listaConteos)
 
-    let efectivo = 0
-    let tarjeta = 0
-    let transferencia = 0
-    let sistecredito = 0
-    let addi = 0
+      let efectivo = 0
+      let tarjeta = 0
+      let transferencia = 0
+      let sistecredito = 0
+      let addi = 0
 
-    for (const venta of ventas) {
-      for (const pago of venta.pagos || []) {
-        if (pago.metodo === 'efectivo') efectivo += pago.monto
-        else if (pago.metodo === 'tarjeta') tarjeta += pago.monto
-        else if (pago.metodo === 'transferencia') transferencia += pago.monto
-        else if (pago.metodo === 'sistecredito') sistecredito += pago.monto
-        else if (pago.metodo === 'addi') addi += pago.monto
+      for (const venta of ventas) {
+        for (const pago of venta.pagos || []) {
+          if (pago.metodo === 'efectivo') efectivo += pago.monto
+          else if (pago.metodo === 'tarjeta') tarjeta += pago.monto
+          else if (pago.metodo === 'transferencia') transferencia += pago.monto
+          else if (pago.metodo === 'sistecredito') sistecredito += pago.monto
+          else if (pago.metodo === 'addi') addi += pago.monto
+        }
       }
-    }
 
-    // Las devoluciones/cambios cuya diferencia se paga o se devuelve en efectivo
-    // afectan directamente el efectivo esperado en caja (positivo o negativo).
-    let efectivoDevoluciones = 0
-    for (const dev of listaDevoluciones) {
-      if (dev.metodoDiferencia === 'efectivo' && dev.diferencia) {
-        efectivoDevoluciones += dev.diferencia
+      // Las devoluciones/cambios cuya diferencia se paga o se devuelve en efectivo
+      // afectan directamente el efectivo esperado en caja (positivo o negativo).
+      let efectivoDevoluciones = 0
+      for (const dev of listaDevoluciones) {
+        if (dev.metodoDiferencia === 'efectivo' && dev.diferencia) {
+          efectivoDevoluciones += dev.diferencia
+        }
       }
-    }
 
-    setDevoluciones(listaDevoluciones)
-    setResumen({
-      cantidadVentas: ventas.length,
-      efectivo,
-      tarjeta,
-      transferencia,
-      sistecredito,
-      addi,
-      efectivoDevoluciones,
-      totalVentas: efectivo + tarjeta + transferencia + sistecredito + addi,
-    })
-    setCargandoResumen(false)
+      setDevoluciones(listaDevoluciones)
+      setResumen({
+        cantidadVentas: ventas.length,
+        efectivo,
+        tarjeta,
+        transferencia,
+        sistecredito,
+        addi,
+        efectivoDevoluciones,
+        totalVentas: efectivo + tarjeta + transferencia + sistecredito + addi,
+      })
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: 'Error al calcular el resumen: ' + err.message })
+    } finally {
+      setCargandoResumen(false)
+    }
   }
 
   async function handleGuardarBase() {
