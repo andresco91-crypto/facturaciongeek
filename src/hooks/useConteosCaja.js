@@ -3,7 +3,6 @@ import {
   addDoc,
   query,
   where,
-  orderBy,
   getDocs,
   serverTimestamp,
 } from 'firebase/firestore'
@@ -23,13 +22,17 @@ export function useConteosCaja() {
 
   async function obtenerConteosDelTurno(turnoId) {
     if (!turnoId) return []
-    const q = query(
-      collection(db, 'conteosCaja'),
-      where('turnoId', '==', turnoId),
-      orderBy('fecha', 'asc')
-    )
+    // Sin orderBy en la consulta para no requerir un índice compuesto en
+    // Firestore; con pocos documentos por turno, se ordena en el cliente.
+    const q = query(collection(db, 'conteosCaja'), where('turnoId', '==', turnoId))
     const snapshot = await getDocs(q)
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const lista = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+    lista.sort((a, b) => {
+      const fa = a.fecha?.toMillis ? a.fecha.toMillis() : 0
+      const fb = b.fecha?.toMillis ? b.fecha.toMillis() : 0
+      return fa - fb
+    })
+    return lista
   }
 
   return { registrarConteo, obtenerConteosDelTurno }
