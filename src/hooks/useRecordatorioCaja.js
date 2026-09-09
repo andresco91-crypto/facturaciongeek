@@ -6,22 +6,43 @@ const HORAS_RECORDATORIO = ['15:30', '17:30', '19:30']
 const INTERVALO_REVISION_MS = 20000 // cada 20 segundos
 const POSPONER_MINUTOS = 5
 
+// Se guarda en localStorage (no en Firestore) para que sobreviva si el
+// trabajador recarga la página: sin esto, un simple refresh olvidaba que
+// ya se había confirmado el conteo y volvía a pedirlo de inmediato.
+function claveHoy() {
+  return 'recordatorioCaja_' + new Date().toDateString()
+}
+
+function cargarEstadoGuardado() {
+  try {
+    const raw = localStorage.getItem(claveHoy())
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function guardarEstado(estado) {
+  try {
+    localStorage.setItem(claveHoy(), JSON.stringify(estado))
+  } catch {
+    // Si localStorage no está disponible, el recordatorio sigue
+    // funcionando en memoria durante esta sesión, solo no sobrevive a un refresh.
+  }
+}
+
 export function useRecordatorioCaja() {
   const [recordatorioActivo, setRecordatorioActivo] = useState(null) // null | 'HH:MM'
-
-  // slot = 'fechaDeHoy-HH:MM'. Una vez confirmado, no vuelve a aparecer hoy.
-  const resueltosRef = useRef(new Set())
-  // Próximo instante (timestamp) en el que cada slot puede volver a activarse.
-  const proximoIntentoRef = useRef({})
+  // estadoRef[hora] = { resuelto: bool, proximoIntento: timestamp }
+  const estadoRef = useRef(cargarEstadoGuardado())
 
   useEffect(() => {
     function verificar() {
       const ahora = new Date()
-      const hoyStr = ahora.toDateString()
 
       for (const hora of HORAS_RECORDATORIO) {
-        const slot = `${hoyStr}-${hora}`
-        if (resueltosRef.current.has(slot)) continue
+        const entrada = estadoRef.current[hora] || {}
+        if (entrada.resuelto) continue
 
         const [h, m] = hora.split(':').map(Number)
         const programada = new Date(ahora)
@@ -29,12 +50,15 @@ export function useRecordatorioCaja() {
 
         if (ahora < programada) continue // esta hora del día todavía no llega
 
-        const proximoPermitido = proximoIntentoRef.current[slot] ?? programada.getTime()
+        const proximoPermitido = entrada.proximoIntento ?? programada.getTime()
 
         if (ahora.getTime() >= proximoPermitido) {
           setRecordatorioActivo(hora)
-          // Si no se resuelve, vuelve a activarse en 5 minutos
-          proximoIntentoRef.current[slot] = ahora.getTime() + POSPONER_MINUTOS * 60 * 1000
+          estadoRef.current[hora] = {
+            ...entrada,
+            proximoIntento: ahora.getTime() + POSPONER_MINUTOS * 60 * 1000,
+          }
+          guardarEstado(estadoRef.current)
           break
         }
       }
@@ -51,11 +75,15 @@ export function useRecordatorioCaja() {
     setRecordatorioActivo(null)
   }
 
-  // Marca la hora actual como confirmada: ya no vuelve a aparecer hoy.
+  // Marca la hora actual como confirmada: ya no vuelve a aparecer hoy,
+  // ni siquiera si se recarga la página.
   function confirmarConteo() {
     if (recordatorioActivo) {
-      const hoyStr = new Date().toDateString()
-      resueltosRef.current.add(`${hoyStr}-${recordatorioActivo}`)
+      estadoRef.current[recordatorioActivo] = {
+        ...(estadoRef.current[recordatorioActivo] || {}),
+        resuelto: true,
+      }
+      guardarEstado(estadoRef.current)
     }
     setRecordatorioActivo(null)
   }
