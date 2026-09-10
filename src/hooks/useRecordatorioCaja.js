@@ -40,6 +40,12 @@ export function useRecordatorioCaja() {
     function verificar() {
       const ahora = new Date()
 
+      // No tiene sentido pedir el conteo de una hora que ya quedó muy atrás
+      // si ya hay una hora más reciente pendiente (ej: no preguntar por las
+      // 3:30 si ya son las 7:00 y la de las 7:30 está por vencer). Se busca
+      // la última hora vencida y sin resolver, y las anteriores se descartan.
+      let horaAMostrar = null
+
       for (const hora of HORAS_RECORDATORIO) {
         const entrada = estadoRef.current[hora] || {}
         if (entrada.resuelto) continue
@@ -51,16 +57,28 @@ export function useRecordatorioCaja() {
         if (ahora < programada) continue // esta hora del día todavía no llega
 
         const proximoPermitido = entrada.proximoIntento ?? programada.getTime()
-
         if (ahora.getTime() >= proximoPermitido) {
-          setRecordatorioActivo(hora)
-          estadoRef.current[hora] = {
-            ...entrada,
-            proximoIntento: ahora.getTime() + POSPONER_MINUTOS * 60 * 1000,
-          }
-          guardarEstado(estadoRef.current)
-          break
+          horaAMostrar = hora
         }
+      }
+
+      if (horaAMostrar) {
+        const idx = HORAS_RECORDATORIO.indexOf(horaAMostrar)
+        for (let i = 0; i < idx; i++) {
+          const horaPrevia = HORAS_RECORDATORIO[i]
+          const entradaPrevia = estadoRef.current[horaPrevia] || {}
+          if (!entradaPrevia.resuelto) {
+            estadoRef.current[horaPrevia] = { ...entradaPrevia, resuelto: true, omitido: true }
+          }
+        }
+
+        setRecordatorioActivo(horaAMostrar)
+        const entradaActual = estadoRef.current[horaAMostrar] || {}
+        estadoRef.current[horaAMostrar] = {
+          ...entradaActual,
+          proximoIntento: ahora.getTime() + POSPONER_MINUTOS * 60 * 1000,
+        }
+        guardarEstado(estadoRef.current)
       }
     }
 
