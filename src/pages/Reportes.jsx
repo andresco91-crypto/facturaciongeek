@@ -8,33 +8,23 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 
+function fechaLocalISO(d) {
+  const anio = d.getFullYear()
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${anio}-${mes}-${dia}`
+}
+
 function hoyISO() {
-  // Fecha local del navegador, no UTC (toISOString desplaza el día en
-  // zonas horarias como Colombia, UTC-5).
-  const d = new Date()
-  const anio = d.getFullYear()
-  const mes = String(d.getMonth() + 1).padStart(2, '0')
-  const dia = String(d.getDate()).padStart(2, '0')
-  return `${anio}-${mes}-${dia}`
+  return fechaLocalISO(new Date())
 }
 
-function claveDia(fecha) {
-  const d = fecha?.toDate ? fecha.toDate() : new Date(fecha)
-  // Se usan los componentes de fecha LOCALES (no toISOString, que convierte a UTC
-  // y desplaza las ventas de la noche al día siguiente en zonas horarias como
-  // Colombia, UTC-5).
-  const anio = d.getFullYear()
-  const mes = String(d.getMonth() + 1).padStart(2, '0')
-  const dia = String(d.getDate()).padStart(2, '0')
-  return `${anio}-${mes}-${dia}`
-}
-
-function formatearDia(claveISO) {
+function formatearFechaISO(claveISO) {
   const [anio, mes, dia] = claveISO.split('-')
   return new Date(Number(anio), Number(mes) - 1, Number(dia)).toLocaleDateString('es-CO', {
-    weekday: 'short',
     day: '2-digit',
     month: 'short',
+    year: 'numeric',
   })
 }
 
@@ -43,14 +33,12 @@ export default function Reportes() {
   const [hasta, setHasta] = useState(hoyISO())
   const [cargando, setCargando] = useState(false)
   const [resultado, setResultado] = useState(null)
-  const [diaExpandido, setDiaExpandido] = useState(null)
   const [error, setError] = useState('')
 
   async function generarReporte() {
     setCargando(true)
     setError('')
     setResultado(null)
-    setDiaExpandido(null)
 
     try {
       const fechaDesde = Timestamp.fromDate(new Date(desde + 'T00:00:00'))
@@ -82,40 +70,35 @@ export default function Reportes() {
       let totalVentas = 0
       let totalCompras = 0
       let gananciaEstimada = 0
-      const porDia = {} // 'YYYY-MM-DD' -> { cantidadVentas, totalVendido, ganancia, productos: {codigo: {...}} }
+      // Un solo acumulado por producto, sumando TODOS los días del rango juntos.
+      const conteoPorProducto = {}
 
       for (const venta of ventas) {
-        const total = Number(venta.total) || 0
-        totalVentas += total
-
-        const dia = claveDia(venta.fecha)
-        if (!porDia[dia]) {
-          porDia[dia] = { cantidadVentas: 0, totalVendido: 0, ganancia: 0, productos: {} }
-        }
-        porDia[dia].cantidadVentas += 1
-        porDia[dia].totalVendido += total
+        totalVentas += Number(venta.total) || 0
 
         for (const item of venta.items || []) {
           const cantidad = Number(item.cantidad) || 0
           const precioUnitario = Number(item.precioUnitario) || 0
           const costoUnitario = costoPorCodigo[item.codigo] ?? 0
           const valorVendido = cantidad * precioUnitario
-          const gananciaItem = (precioUnitario - costoUnitario) * cantidad
+          const valorCosto = cantidad * costoUnitario
+          const gananciaItem = valorVendido - valorCosto
 
           gananciaEstimada += gananciaItem
-          porDia[dia].ganancia += gananciaItem
 
-          if (!porDia[dia].productos[item.codigo]) {
-            porDia[dia].productos[item.codigo] = {
+          if (!conteoPorProducto[item.codigo]) {
+            conteoPorProducto[item.codigo] = {
               nombre: item.nombre,
               cantidad: 0,
               valorVendido: 0,
+              valorCosto: 0,
               ganancia: 0,
             }
           }
-          porDia[dia].productos[item.codigo].cantidad += cantidad
-          porDia[dia].productos[item.codigo].valorVendido += valorVendido
-          porDia[dia].productos[item.codigo].ganancia += gananciaItem
+          conteoPorProducto[item.codigo].cantidad += cantidad
+          conteoPorProducto[item.codigo].valorVendido += valorVendido
+          conteoPorProducto[item.codigo].valorCosto += valorCosto
+          conteoPorProducto[item.codigo].ganancia += gananciaItem
         }
       }
 
@@ -123,17 +106,9 @@ export default function Reportes() {
         totalCompras += Number(compra.total) || 0
       }
 
-      const totalesPorDia = Object.entries(porDia)
-        .map(([dia, datos]) => ({
-          dia,
-          cantidadVentas: datos.cantidadVentas,
-          totalVendido: datos.totalVendido,
-          ganancia: datos.ganancia,
-          productos: Object.entries(datos.productos)
-            .map(([codigo, p]) => ({ codigo, ...p }))
-            .sort((a, b) => b.cantidad - a.cantidad),
-        }))
-        .sort((a, b) => (a.dia < b.dia ? 1 : -1)) // más reciente primero
+      const productos = Object.entries(conteoPorProducto)
+        .map(([codigo, datos]) => ({ codigo, ...datos }))
+        .sort((a, b) => b.cantidad - a.cantidad)
 
       setResultado({
         cantidadVentas: ventas.length,
@@ -141,7 +116,7 @@ export default function Reportes() {
         totalVentas,
         totalCompras,
         gananciaEstimada,
-        totalesPorDia,
+        productos,
       })
     } catch (err) {
       setError('Error al generar el reporte: ' + err.message)
@@ -150,9 +125,7 @@ export default function Reportes() {
     }
   }
 
-  function toggleDia(dia) {
-    setDiaExpandido(diaExpandido === dia ? null : dia)
-  }
+  const esUnSoloDia = desde === hasta
 
   return (
     <div className="p-6 max-w-4xl">
@@ -194,7 +167,12 @@ export default function Reportes() {
 
       {resultado && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <h2 className="text-lg font-semibold mb-2">
+            {esUnSoloDia
+              ? `Resumen del ${formatearFechaISO(desde)}`
+              : `Resumen total del ${formatearFechaISO(desde)} al ${formatearFechaISO(hasta)}`}
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
             <div className="bg-card border border-line rounded p-4">
               <p className="text-muted text-sm">Ventas</p>
               <p className="text-xl font-bold">${resultado.totalVentas.toLocaleString()}</p>
@@ -216,76 +194,58 @@ export default function Reportes() {
             </div>
           </div>
 
-          <h2 className="text-lg font-semibold mb-1">Totalidad de lo vendido por día</h2>
+          <h2 className="text-lg font-semibold mb-1">
+            Artículos vendidos {esUnSoloDia ? 'ese día' : 'en todo el rango'}
+          </h2>
           <p className="text-muted text-sm mb-3">
-            Haz clic en un día para ver qué productos se vendieron.
+            {resultado.productos.length} producto(s) distinto(s) vendidos.
           </p>
 
-          {resultado.totalesPorDia.length === 0 ? (
+          {resultado.productos.length === 0 ? (
             <p className="text-muted text-sm">No hay ventas en este rango de fechas.</p>
           ) : (
-            <div className="space-y-2">
-              {resultado.totalesPorDia.map((f) => (
-                <div key={f.dia} className="bg-card border border-line rounded overflow-hidden">
-                  <button
-                    onClick={() => toggleDia(f.dia)}
-                    className="w-full text-left p-3 flex justify-between items-center hover:bg-panel"
-                  >
-                    <div>
-                      <span className="font-medium capitalize">{formatearDia(f.dia)}</span>
-                      <span className="text-muted ml-2 text-sm">
-                        {f.cantidadVentas} factura(s)
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-emerald-400 text-sm">
-                        +${f.ganancia.toLocaleString()}
-                      </span>
-                      <span className="font-semibold">${f.totalVendido.toLocaleString()}</span>
-                      <span className="text-muted text-xs">
-                        {diaExpandido === f.dia ? '▲' : '▼'}
-                      </span>
-                    </div>
-                  </button>
-
-                  {diaExpandido === f.dia && (
-                    <div className="border-t border-line p-3">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-muted">
-                            <th className="text-left font-normal">Producto</th>
-                            <th className="text-right font-normal">Unidades</th>
-                            <th className="text-right font-normal">Total vendido</th>
-                            <th className="text-right font-normal">Ganancia</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {f.productos.map((p) => (
-                            <tr key={p.codigo} className="border-t border-line">
-                              <td className="py-1">{p.nombre}</td>
-                              <td className="py-1 text-right">{p.cantidad}</td>
-                              <td className="py-1 text-right">
-                                ${p.valorVendido.toLocaleString()}
-                              </td>
-                              <td className="py-1 text-right text-emerald-400">
-                                ${p.ganancia.toLocaleString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div className="bg-panel border border-line rounded p-3 flex justify-between font-semibold text-sm">
-                <span>Total del rango</span>
-                <span>
-                  ${resultado.totalVentas.toLocaleString()} · ganancia $
-                  {resultado.gananciaEstimada.toLocaleString()}
-                </span>
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-line bg-card">
+                <thead className="bg-panel">
+                  <tr>
+                    <th className="p-2 text-left">Producto</th>
+                    <th className="p-2 text-right">Unidades</th>
+                    <th className="p-2 text-right">Valor a costo</th>
+                    <th className="p-2 text-right">Valor vendido</th>
+                    <th className="p-2 text-right">Ganancia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resultado.productos.map((p) => (
+                    <tr key={p.codigo} className="border-t border-line">
+                      <td className="p-2">{p.nombre}</td>
+                      <td className="p-2 text-right">{p.cantidad}</td>
+                      <td className="p-2 text-right text-muted">
+                        ${p.valorCosto.toLocaleString()}
+                      </td>
+                      <td className="p-2 text-right">${p.valorVendido.toLocaleString()}</td>
+                      <td className="p-2 text-right text-emerald-400 font-medium">
+                        ${p.ganancia.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-line bg-panel font-semibold">
+                    <td className="p-2">Total</td>
+                    <td className="p-2 text-right">
+                      {resultado.productos.reduce((a, p) => a + p.cantidad, 0)}
+                    </td>
+                    <td className="p-2 text-right">
+                      ${resultado.productos.reduce((a, p) => a + p.valorCosto, 0).toLocaleString()}
+                    </td>
+                    <td className="p-2 text-right">${resultado.totalVentas.toLocaleString()}</td>
+                    <td className="p-2 text-right text-emerald-400">
+                      ${resultado.gananciaEstimada.toLocaleString()}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           )}
         </>
