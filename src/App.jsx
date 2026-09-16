@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShoppingCart,
@@ -15,8 +15,8 @@ import {
   CreditCard,
   LayoutDashboard,
   RotateCcw,
-  ShieldCheck,
   Clock,
+  ShieldCheck,
   Menu,
   LogOut,
   Users,
@@ -26,6 +26,10 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import { CompraDraftProvider } from './hooks/useCompraDraft'
 import { ProductosProvider } from './hooks/useProductosContext'
 import { RoleProvider, useRole } from './hooks/useRole'
+import { useRecordatorioCaja } from './hooks/useRecordatorioCaja'
+import { useTurno } from './hooks/useTurno'
+import { useConteosCaja } from './hooks/useConteosCaja'
+import { useDevoluciones } from './hooks/useDevoluciones'
 import Login from './pages/Login'
 import SelectorRol from './pages/SelectorRol'
 import ImportarExcel from './pages/ImportarExcel'
@@ -36,6 +40,7 @@ import Reportes from './pages/Reportes'
 import Inventario from './pages/Inventario'
 import HistorialVentas from './pages/HistorialVentas'
 import HistorialCompras from './pages/HistorialCompras'
+import HistorialCaja from './pages/HistorialCaja'
 import Notas from './pages/Notas'
 import Exportar from './pages/Exportar'
 import SugerenciaCompra from './pages/SugerenciaCompra'
@@ -43,10 +48,6 @@ import VentasCredito from './pages/VentasCredito'
 import Dashboard from './pages/Dashboard'
 import Devoluciones from './pages/Devoluciones'
 import AsignarGarantias from './pages/AsignarGarantias'
-import HistorialCaja from './pages/HistorialCaja'
-import { useRecordatorioCaja } from './hooks/useRecordatorioCaja'
-import { useTurno } from './hooks/useTurno'
-import { useConteosCaja } from './hooks/useConteosCaja'
 
 const RUTAS_SOLO_ADMIN = [
   '/compras',
@@ -57,9 +58,12 @@ const RUTAS_SOLO_ADMIN = [
   '/exportar',
   '/sugerencia-compra',
   '/ventas-credito',
+  '/asignar-garantias',
   '/dashboard',
 ]
 
+// "Asignar garantías" ya no aparece en el menú (herramienta de un solo uso),
+// pero la ruta y el componente siguen activos por si se necesita de nuevo.
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Inicio', icon: LayoutDashboard, admin: true },
   { to: '/caja', label: 'Caja', icon: Wallet, admin: false },
@@ -153,13 +157,58 @@ function AppLayout() {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [perfilAbierto, setPerfilAbierto] = useState(false)
   const esAdmin = rol === 'admin'
+
   const { recordatorioActivo, posponerRecordatorio, confirmarConteo } = useRecordatorioCaja()
-  const { turno } = useTurno()
+  const { turno, obtenerVentasDelTurno } = useTurno()
   const { registrarConteo } = useConteosCaja()
+  const { obtenerDevolucionesDelTurno } = useDevoluciones()
   const [montoConteo, setMontoConteo] = useState('')
   const [guardandoConteo, setGuardandoConteo] = useState(false)
+  const [efectivoEsperado, setEfectivoEsperado] = useState(null)
+  const [cargandoEsperado, setCargandoEsperado] = useState(false)
 
   const itemsVisibles = NAV_ITEMS.filter((item) => !item.admin || esAdmin)
+
+  // Cuando se activa la alerta, calcula cuánto efectivo debería haber en
+  // caja en este momento (base + ventas en efectivo + devoluciones), para
+  // que se pueda comparar contra lo que realmente se cuenta a mano.
+  useEffect(() => {
+    async function calcularEsperado() {
+      if (!turno) {
+        setEfectivoEsperado(null)
+        return
+      }
+      setCargandoEsperado(true)
+      try {
+        const [ventas, devoluciones] = await Promise.all([
+          obtenerVentasDelTurno(turno.id),
+          obtenerDevolucionesDelTurno(turno.id),
+        ])
+        let efectivoVentas = 0
+        for (const v of ventas) {
+          for (const pago of v.pagos || []) {
+            if (pago.metodo === 'efectivo') efectivoVentas += pago.monto
+          }
+        }
+        let efectivoDevoluciones = 0
+        for (const dev of devoluciones) {
+          if (dev.metodoDiferencia === 'efectivo' && dev.diferencia) {
+            efectivoDevoluciones += dev.diferencia
+          }
+        }
+        setEfectivoEsperado(Number(turno.montoInicial) + efectivoVentas + efectivoDevoluciones)
+      } finally {
+        setCargandoEsperado(false)
+      }
+    }
+
+    if (recordatorioActivo) {
+      calcularEsperado()
+    } else {
+      setEfectivoEsperado(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordatorioActivo])
 
   async function handleGuardarConteo(irACaja) {
     if (montoConteo === '') return
@@ -270,7 +319,6 @@ function AppLayout() {
             />
             <Route path="/caja" element={<Caja />} />
             <Route path="/historial-caja" element={<HistorialCaja />} />
-            <Route path="/devoluciones" element={<Devoluciones />} />
             <Route
               path="/reportes"
               element={
@@ -280,19 +328,12 @@ function AppLayout() {
               }
             />
             <Route path="/notas" element={<Notas />} />
+            <Route path="/devoluciones" element={<Devoluciones />} />
             <Route
               path="/importar"
               element={
                 <RutaProtegida>
                   <ImportarExcel />
-                </RutaProtegida>
-              }
-            />
-            <Route
-              path="/asignar-garantias"
-              element={
-                <RutaProtegida>
-                  <AsignarGarantias />
                 </RutaProtegida>
               }
             />
@@ -321,6 +362,14 @@ function AppLayout() {
               }
             />
             <Route
+              path="/asignar-garantias"
+              element={
+                <RutaProtegida>
+                  <AsignarGarantias />
+                </RutaProtegida>
+              }
+            />
+            <Route
               path="/dashboard"
               element={
                 <RutaProtegida>
@@ -339,10 +388,26 @@ function AppLayout() {
             <h2 className="text-xl font-display font-bold text-amber-400 mb-2">
               Hora de hacer caja
             </h2>
-            <p className="text-slate-300 mb-4">
+            <p className="text-slate-300 mb-3">
               Son las {recordatorioActivo}. Escribe cuánto efectivo hay ahora mismo en caja.
               Si no confirmas, este aviso vuelve a aparecer cada 5 minutos.
             </p>
+
+            <div className="bg-panel border border-line rounded-lg p-3 mb-4 text-sm">
+              {!turno ? (
+                <span className="text-muted">No hay un turno abierto ahora mismo.</span>
+              ) : cargandoEsperado || efectivoEsperado === null ? (
+                <span className="text-muted">Calculando cuánto debería haber...</span>
+              ) : (
+                <span className="text-slate-300">
+                  Debería haber aproximadamente{' '}
+                  <strong className="text-brand-light">
+                    ${efectivoEsperado.toLocaleString()}
+                  </strong>{' '}
+                  en caja
+                </span>
+              )}
+            </div>
 
             <input
               type="number"
