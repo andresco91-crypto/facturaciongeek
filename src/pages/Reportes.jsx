@@ -8,6 +8,8 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 
+// Fecha local del navegador, no UTC (toISOString desplaza el día en
+// zonas horarias como Colombia, UTC-5).
 function fechaLocalISO(d) {
   const anio = d.getFullYear()
   const mes = String(d.getMonth() + 1).padStart(2, '0')
@@ -70,7 +72,8 @@ export default function Reportes() {
       let totalVentas = 0
       let totalCompras = 0
       let gananciaEstimada = 0
-      // Un solo acumulado por producto, sumando TODOS los días del rango juntos.
+      // Un solo acumulado por producto, sumando TODOS los días del rango juntos
+      // (no se separa por día).
       const conteoPorProducto = {}
 
       for (const venta of ventas) {
