@@ -17,6 +17,9 @@ import { db } from '../lib/firebase'
 // Escucha en tiempo real si hay un turno de caja abierto (fechaCierre == null).
 // Como solo puede haber uno abierto a la vez en toda la tienda, esto sirve
 // tanto para el módulo de Caja como para bloquear Ventas si no hay turno activo.
+// onSnapshot refleja los cambios locales de inmediato (incluso sin internet,
+// gracias a la caché de Firestore), así que abrir/cerrar turno se ve reflejado
+// al instante sin depender de la confirmación del servidor.
 export function useTurno() {
   const [turno, setTurno] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -35,12 +38,22 @@ export function useTurno() {
     return unsubscribe
   }, [])
 
-  async function abrirTurno(montoInicial) {
-    await addDoc(collection(db, 'turnos'), {
-      fechaApertura: serverTimestamp(),
-      fechaCierre: null,
-      montoInicial: Number(montoInicial) || 0,
-      montoFinalEfectivo: null,
+  // No se espera (await) a que el servidor confirme la escritura: sin
+  // internet esa confirmación nunca llegaría y la pantalla se quedaría
+  // congelada. Firestore guarda el cambio localmente de inmediato (el
+  // listener onSnapshot de arriba lo refleja al instante) y sincroniza
+  // solo cuando vuelva la conexión.
+  function abrirTurno(montoInicial) {
+    return new Promise((resolve) => {
+      addDoc(collection(db, 'turnos'), {
+        fechaApertura: serverTimestamp(),
+        fechaCierre: null,
+        montoInicial: Number(montoInicial) || 0,
+        montoFinalEfectivo: null,
+      }).catch((err) => {
+        console.error('Pendiente de sincronizar (sin internet por ahora):', err)
+      })
+      resolve()
     })
   }
 
@@ -54,20 +67,6 @@ export function useTurno() {
         nuevo: Number(nuevoMonto) || 0,
         fecha: Timestamp.now(),
       }),
-    })
-  }
-
-  async function cerrarTurno(turnoId, montoFinalEfectivo, resumenVentas) {
-    await updateDoc(doc(db, 'turnos', turnoId), {
-      fechaCierre: serverTimestamp(),
-      montoFinalEfectivo: Number(montoFinalEfectivo) || 0,
-      totalVentasEfectivo: resumenVentas.efectivo,
-      totalVentasTarjeta: resumenVentas.tarjeta,
-      totalVentasTransferencia: resumenVentas.transferencia,
-      totalVentasSistecredito: resumenVentas.sistecredito || 0,
-      totalVentasAddi: resumenVentas.addi || 0,
-      totalGastos: resumenVentas.totalGastos || 0,
-      diferencia: resumenVentas.diferencia,
     })
   }
 
@@ -100,6 +99,20 @@ export function useTurno() {
     })
 
     return nuevaDiferencia
+  }
+
+  async function cerrarTurno(turnoId, montoFinalEfectivo, resumenVentas) {
+    await updateDoc(doc(db, 'turnos', turnoId), {
+      fechaCierre: serverTimestamp(),
+      montoFinalEfectivo: Number(montoFinalEfectivo) || 0,
+      totalVentasEfectivo: resumenVentas.efectivo,
+      totalVentasTarjeta: resumenVentas.tarjeta,
+      totalVentasTransferencia: resumenVentas.transferencia,
+      totalVentasSistecredito: resumenVentas.sistecredito || 0,
+      totalVentasAddi: resumenVentas.addi || 0,
+      totalGastos: resumenVentas.totalGastos || 0,
+      diferencia: resumenVentas.diferencia,
+    })
   }
 
   // Trae las ventas del turno para calcular el resumen al cerrar,
