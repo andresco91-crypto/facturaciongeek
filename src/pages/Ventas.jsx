@@ -27,12 +27,12 @@ const METODOS_PAGO = [
 
 const META_DIARIA = 410000
 
-
 export default function Ventas() {
   const { productos, buscar, aplicarAjustesLocales } = useProductosCtx()
   const { turno, cargando: cargandoTurno } = useTurno()
   const { rol } = useRole()
   const esAdmin = rol === 'admin'
+
   const [textoBusqueda, setTextoBusqueda] = useState('')
   const [items, setItems] = useState([])
   const [pagos, setPagos] = useState([{ metodo: 'efectivo', monto: '' }])
@@ -46,63 +46,55 @@ export default function Ventas() {
 
   const resultados = buscar(textoBusqueda)
 
-  // Carga el total vendido hoy una sola vez, al entrar al módulo, para saber
-  // desde dónde arrancar el seguimiento de la meta diaria.
+  // Carga el total vendido hoy una sola vez, al entrar al módulo.
   useEffect(() => {
     async function cargarTotalHoy() {
-      const inicioDia = new Date()
-      inicioDia.setHours(0, 0, 0, 0)
-      const q = query(
-        collection(db, 'ventas'),
-        where('fecha', '>=', Timestamp.fromDate(inicioDia))
-      )
-      const snapshot = await getDocs(q)
-      const total = snapshot.docs
-        .map((d) => d.data())
-        .filter((v) => v.anulada !== true)
-        .reduce((acc, v) => acc + (Number(v.total) || 0), 0)
-      setTotalHoy(total)
-      if (total >= META_DIARIA) yaFelicitadoRef.current = true
+      try {
+        const inicioDia = new Date()
+        inicioDia.setHours(0, 0, 0, 0)
+        const q = query(
+          collection(db, 'ventas'),
+          where('fecha', '>=', Timestamp.fromDate(inicioDia))
+        )
+        const snapshot = await getDocs(q)
+        const total = snapshot.docs
+          .map((d) => d.data())
+          .filter((v) => v.anulada !== true)
+          .reduce((acc, v) => acc + (Number(v.total) || 0), 0)
+        setTotalHoy(total)
+        if (total >= META_DIARIA) yaFelicitadoRef.current = true
+      } catch (err) {
+        // Sin internet no se puede calcular el total del día todavía; se
+        // sigue acumulando localmente a partir de las ventas que se hagan ahora.
+      }
     }
     cargarTotalHoy()
   }, [])
 
-  // Imprime automáticamente en cuanto el ticket de la nueva venta ya está
-  // renderizado en el DOM (ultimaVenta cambia después de guardar).
-  useEffect(() => {
-    if (ultimaVenta && ultimaVenta !== ventaParaImprimirRef.current) {
-      ventaParaImprimirRef.current = ultimaVenta
-      const timer = setTimeout(() => window.print(), 150)
-      return () => clearTimeout(timer)
-    }
-  }, [ultimaVenta])
-
+  // Cada clic agrega una NUEVA línea, incluso si el producto ya está en la
+  // factura — así se puede vender el mismo artículo con precios distintos
+  // en la misma venta (ej: 2 unidades a precio normal + 1 con descuento).
   function agregarProducto(producto) {
-    setItems((prev) => {
-      if (prev.some((i) => i.codigo === producto.codigo)) {
-        return prev
-      }
-      return [
-        ...prev,
-        {
-          codigo: producto.codigo,
-          nombre: producto.nombre,
-          cantidad: 1,
-          tipoPrecio: 'publico',
-          precioUnitario: producto.precioPublico || 0,
-          precioPublico: producto.precioPublico || 0,
-          precioMayorista: producto.precioMayorista || 0,
-          costoPromedio: producto.costoPromedio || 0,
-          garantia: producto.garantia || '',
-        },
-      ]
-    })
+    setItems((prev) => [
+      ...prev,
+      {
+        codigo: producto.codigo,
+        nombre: producto.nombre,
+        cantidad: 1,
+        tipoPrecio: 'publico',
+        precioUnitario: producto.precioPublico || 0,
+        precioPublico: producto.precioPublico || 0,
+        precioMayorista: producto.precioMayorista || 0,
+        costoPromedio: producto.costoPromedio || 0,
+        garantia: producto.garantia || '',
+      },
+    ])
     setTextoBusqueda('')
   }
 
   // Al presionar Enter: si el texto coincide exactamente con un código
-  // (ideal para lectores de código de barras o escritura manual del código),
-  // o si la búsqueda deja un único resultado, se agrega automáticamente.
+  // (lector de código de barras o escritura manual), o si la búsqueda deja
+  // un único resultado, se agrega automáticamente.
   function handleKeyDown(e) {
     if (e.key !== 'Enter') return
     e.preventDefault()
@@ -188,7 +180,10 @@ export default function Ventas() {
     setMensaje(null)
 
     try {
+      // Esto sí espera respuesta, pero tiene su propio respaldo offline:
+      // si no hay internet, devuelve un número provisional al instante.
       const numeroFactura = await obtenerSiguienteNumeroFactura()
+
       const batch = writeBatch(db)
 
       for (const item of items) {
@@ -223,7 +218,15 @@ export default function Ventas() {
         turnoId: turno.id,
       })
 
-      await batch.commit()
+      // IMPORTANTE (funcionamiento sin internet): no se espera la
+      // confirmación del servidor antes de continuar. Firestore guarda el
+      // cambio en el dispositivo de inmediato y lo sincroniza solo cuando
+      // vuelva la señal. Si esperáramos aquí (`await batch.commit()`), la
+      // pantalla se quedaría congelada sin internet hasta que regrese la
+      // conexión.
+      batch.commit().catch((err) => {
+        console.error('Pendiente de sincronizar (sin internet por ahora):', err)
+      })
 
       setUltimaVenta({
         fecha: new Date(),
@@ -241,6 +244,7 @@ export default function Ventas() {
         yaFelicitadoRef.current = true
         setMostrarFelicitacion(true)
       }
+
       setItems([])
       setPagos([{ metodo: 'efectivo', monto: '' }])
       aplicarAjustesLocales(
@@ -257,12 +261,20 @@ export default function Ventas() {
     window.print()
   }
 
+  useEffect(() => {
+    if (ultimaVenta && ultimaVenta !== ventaParaImprimirRef.current) {
+      ventaParaImprimirRef.current = ultimaVenta
+      const timer = setTimeout(() => window.print(), 150)
+      return () => clearTimeout(timer)
+    }
+  }, [ultimaVenta])
+
   return (
     <div className="p-6 max-w-3xl">
       <h1 className="text-2xl font-bold mb-4">Punto de venta</h1>
 
       {!cargandoTurno && !turno && (
-        <div className="bg-amber-950/40 border border-amber-800 text-amber-300 rounded p-4 mb-4">
+        <div className="bg-amber-950/40 border border-amber-800 text-amber-300 rounded-lg p-4 mb-4">
           <p className="font-medium">No hay un turno de caja abierto.</p>
           <p className="text-sm mt-1">
             Ve al módulo <strong>Caja</strong> y abre un turno antes de registrar ventas.
@@ -282,7 +294,7 @@ export default function Ventas() {
           disabled={!turno}
         />
         {textoBusqueda && (
-          <div className="absolute z-10 bg-card border border-line rounded shadow-md w-full mt-1 max-h-64 overflow-y-auto">
+          <div className="absolute z-10 bg-card border border-line rounded-lg shadow-md w-full mt-1 max-h-64 overflow-y-auto">
             {resultados.map((p) => (
               <button
                 key={p.id}
@@ -318,7 +330,7 @@ export default function Ventas() {
             </thead>
             <tbody>
               {items.map((item, idx) => (
-                <tr key={item.codigo} className="border-t">
+                <tr key={idx} className="border-t border-line">
                   <td className="p-2">
                     {item.nombre}
                     {esAdmin && (
@@ -333,14 +345,14 @@ export default function Ventas() {
                       min="1"
                       value={item.cantidad}
                       onChange={(e) => actualizarItem(idx, 'cantidad', e.target.value)}
-                      className="w-16 border border-line rounded-lg px-2 py-1 text-right"
+                      className="w-16 border border-line rounded-md px-2 py-1 text-right"
                     />
                   </td>
                   <td className="p-2">
                     <select
                       value={item.tipoPrecio}
                       onChange={(e) => actualizarItem(idx, 'tipoPrecio', e.target.value)}
-                      className="border border-line rounded-lg px-2 py-1 text-xs"
+                      className="border border-line rounded-md px-2 py-1 text-xs bg-panel"
                     >
                       <option value="publico">Público</option>
                       <option value="mayorista">Mayorista</option>
@@ -352,7 +364,7 @@ export default function Ventas() {
                       min="0"
                       value={item.precioUnitario}
                       onChange={(e) => actualizarItem(idx, 'precioUnitario', e.target.value)}
-                      className="w-24 border border-line rounded-lg px-2 py-1 text-right"
+                      className="w-24 border border-line rounded-md px-2 py-1 text-right"
                     />
                   </td>
                   <td className="p-2 text-right">
@@ -361,7 +373,7 @@ export default function Ventas() {
                   <td className="p-2 text-center">
                     <button
                       onClick={() => quitarItem(idx)}
-                      className="text-red-500 text-xs hover:underline"
+                      className="text-red-400 text-xs hover:underline"
                     >
                       Quitar
                     </button>
@@ -378,7 +390,7 @@ export default function Ventas() {
       )}
 
       {items.length > 0 && (
-        <div className="mb-4 bg-card border border-line rounded p-4">
+        <div className="mb-4 bg-card border border-line rounded-lg p-4">
           <p className="font-medium mb-2">Pago</p>
 
           {pagoUnico ? (
@@ -386,7 +398,7 @@ export default function Ventas() {
               <select
                 value={pagos[0].metodo}
                 onChange={(e) => actualizarPago(0, 'metodo', e.target.value)}
-                className="border border-line rounded-lg px-2 py-1 text-sm"
+                className="border border-line rounded-md px-2 py-1 text-sm bg-panel"
               >
                 {METODOS_PAGO.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -394,8 +406,8 @@ export default function Ventas() {
                   </option>
                 ))}
               </select>
-              <span className="text-sm text-slate-300">
-                Monto: <strong>${total.toLocaleString()}</strong> (total de la venta)
+              <span className="text-sm text-muted">
+                Monto: <strong className="text-slate-200">${total.toLocaleString()}</strong> (total de la venta)
               </span>
             </div>
           ) : (
@@ -404,7 +416,7 @@ export default function Ventas() {
                 <select
                   value={pago.metodo}
                   onChange={(e) => actualizarPago(idx, 'metodo', e.target.value)}
-                  className="border border-line rounded-lg px-2 py-1 text-sm"
+                  className="border border-line rounded-md px-2 py-1 text-sm bg-panel"
                 >
                   {METODOS_PAGO.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -418,11 +430,11 @@ export default function Ventas() {
                   placeholder="Monto"
                   value={pago.monto}
                   onChange={(e) => actualizarPago(idx, 'monto', e.target.value)}
-                  className="border border-line rounded-lg px-2 py-1 text-sm w-32"
+                  className="border border-line rounded-md px-2 py-1 text-sm w-32"
                 />
                 <button
                   onClick={() => quitarPago(idx)}
-                  className="text-red-500 text-xs hover:underline"
+                  className="text-red-400 text-xs hover:underline"
                 >
                   Quitar
                 </button>
@@ -432,7 +444,7 @@ export default function Ventas() {
 
           <button
             onClick={agregarMetodoPago}
-            className="text-sm text-slate-300 hover:underline"
+            className="text-sm text-muted hover:underline"
           >
             + Dividir pago en otro método
           </button>
@@ -440,7 +452,7 @@ export default function Ventas() {
           {!pagoUnico && (
             <p
               className={`mt-2 text-sm font-medium ${
-                Math.abs(diferenciaPago) < 0.5 ? 'text-green-600' : 'text-red-400'
+                Math.abs(diferenciaPago) < 0.5 ? 'text-emerald-400' : 'text-red-400'
               }`}
             >
               {Math.abs(diferenciaPago) < 0.5
@@ -455,17 +467,17 @@ export default function Ventas() {
 
       {mensaje && (
         <div
-          className={`p-3 rounded mb-4 text-sm ${
+          className={`p-3 rounded-lg mb-4 text-sm ${
             mensaje.tipo === 'exito'
-              ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-900'
-              : 'bg-red-950/40 text-red-300 border border-red-900'
+              ? 'bg-emerald-950/40 border border-emerald-900 text-emerald-300'
+              : 'bg-red-950/40 border border-red-900 text-red-300'
           }`}
         >
           {mensaje.texto}
           {mensaje.tipo === 'exito' && ultimaVenta && (
             <button
               onClick={imprimirTicket}
-              className="ml-3 underline font-medium hover:text-green-900"
+              className="ml-3 underline font-medium hover:text-emerald-100"
             >
               Reimprimir ticket
             </button>
