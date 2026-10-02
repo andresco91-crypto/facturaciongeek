@@ -12,8 +12,18 @@ export default function Inventario() {
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
 
+  function buscarTodos(texto) {
+    const t = texto.toLowerCase().trim()
+    return productos.filter(
+      (p) =>
+        p.nombre?.toLowerCase().includes(t) || p.codigo?.toLowerCase().includes(t)
+    )
+  }
+
   const listaBase = textoBusqueda.trim() ? buscarTodos(textoBusqueda) : productos
 
+  // "Agotados" incluye tanto stock en cero como stock NEGATIVO (productos
+  // vendidos de más antes de reponer, que quedaron en números rojos).
   const listaFiltrada = listaBase.filter((p) => {
     const stock = Number(p.stock) || 0
     if (filtroStock === 'con-stock') return stock > 0
@@ -23,14 +33,7 @@ export default function Inventario() {
 
   const cantidadConStock = productos.filter((p) => (Number(p.stock) || 0) > 0).length
   const cantidadAgotados = productos.filter((p) => (Number(p.stock) || 0) <= 0).length
-
-  function buscarTodos(texto) {
-    const t = texto.toLowerCase().trim()
-    return productos.filter(
-      (p) =>
-        p.nombre?.toLowerCase().includes(t) || p.codigo?.toLowerCase().includes(t)
-    )
-  }
+  const cantidadNegativos = productos.filter((p) => (Number(p.stock) || 0) < 0).length
 
   function empezarEdicion(producto) {
     setEditando(producto.codigo)
@@ -79,12 +82,9 @@ export default function Inventario() {
       const cambioDeCodigo = nuevoCodigo !== codigoOriginal
 
       if (!cambioDeCodigo) {
-        // Caso normal: mismo código, solo se actualizan los campos
         await updateDoc(doc(db, 'productos', codigoOriginal), cambios)
         actualizarProductoLocal(codigoOriginal, cambios)
       } else {
-        // Cambio de código = cambia el ID del documento en Firestore.
-        // Primero verificamos que el nuevo código no esté ya en uso.
         const yaExisteLocal = productos.some((p) => p.codigo === nuevoCodigo)
         if (yaExisteLocal) {
           throw new Error(`El código "${nuevoCodigo}" ya está en uso por otro producto.`)
@@ -157,16 +157,16 @@ export default function Inventario() {
               : 'border-line text-slate-300 hover:bg-panel'
           }`}
         >
-          Agotados ({cantidadAgotados})
+          Agotados ({cantidadAgotados}{cantidadNegativos > 0 && `, ${cantidadNegativos} en negativo`})
         </button>
       </div>
 
       {mensaje && (
         <div
-          className={`p-3 rounded mb-4 text-sm max-w-md ${
+          className={`p-3 rounded-lg mb-4 text-sm max-w-md ${
             mensaje.tipo === 'exito'
-              ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-900'
-              : 'bg-red-950/40 text-red-300 border border-red-900'
+              ? 'bg-emerald-950/40 border border-emerald-900 text-emerald-300'
+              : 'bg-red-950/40 border border-red-900 text-red-300'
           }`}
         >
           {mensaje.texto}
@@ -191,134 +191,141 @@ export default function Inventario() {
               </tr>
             </thead>
             <tbody>
-              {listaFiltrada.map((p) => (
-                <tr key={p.codigo} className="border-t">
-                  <td className="p-2 text-muted">
-                    {editando === p.codigo ? (
-                      <input
-                        type="text"
-                        value={valores.codigo}
-                        onChange={(e) => setValores({ ...valores, codigo: e.target.value })}
-                        className="w-24 border border-line rounded-lg px-2 py-1"
-                      />
-                    ) : (
-                      p.codigo
-                    )}
-                  </td>
-                  <td className="p-2">
-                    {editando === p.codigo ? (
-                      <input
-                        type="text"
-                        value={valores.nombre}
-                        onChange={(e) => setValores({ ...valores, nombre: e.target.value })}
-                        className="w-full min-w-[160px] border border-line rounded-lg px-2 py-1"
-                      />
-                    ) : (
-                      p.nombre
-                    )}
-                  </td>
-                  <td className="p-2 text-right text-muted">
-                    {editando === p.codigo ? (
-                      <input
-                        type="number"
-                        value={valores.costoPromedio}
-                        onChange={(e) =>
-                          setValores({ ...valores, costoPromedio: e.target.value })
-                        }
-                        className="w-24 border border-line rounded-lg px-2 py-1 text-right"
-                      />
-                    ) : (
-                      `$${Number(p.costoPromedio || 0).toLocaleString()}`
-                    )}
-                  </td>
-
-                  {editando === p.codigo ? (
-                    <>
-                      <td className="p-2 text-right">
-                        <input
-                          type="number"
-                          value={valores.precioPublico}
-                          onChange={(e) =>
-                            setValores({ ...valores, precioPublico: e.target.value })
-                          }
-                          className="w-24 border border-line rounded-lg px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="p-2 text-right">
-                        <input
-                          type="number"
-                          value={valores.precioMayorista}
-                          onChange={(e) =>
-                            setValores({ ...valores, precioMayorista: e.target.value })
-                          }
-                          className="w-24 border border-line rounded-lg px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="p-2 text-right">
-                        <input
-                          type="number"
-                          value={valores.stock}
-                          onChange={(e) =>
-                            setValores({ ...valores, stock: e.target.value })
-                          }
-                          className="w-20 border border-line rounded-lg px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="p-2">
+              {listaFiltrada.map((p) => {
+                const stockNum = Number(p.stock) || 0
+                return (
+                  <tr key={p.codigo} className="border-t border-line">
+                    <td className="p-2 text-muted">
+                      {editando === p.codigo ? (
                         <input
                           type="text"
-                          value={valores.garantia}
-                          onChange={(e) =>
-                            setValores({ ...valores, garantia: e.target.value })
-                          }
-                          placeholder="ej: 3 meses"
-                          className="w-28 border border-line rounded-md px-2 py-1 bg-panel"
+                          value={valores.codigo}
+                          onChange={(e) => setValores({ ...valores, codigo: e.target.value })}
+                          className="w-24 border border-line rounded-lg px-2 py-1"
                         />
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        <button
-                          onClick={() => guardarEdicion(p.codigo)}
-                          disabled={guardando}
-                          className="text-emerald-300 text-xs font-medium hover:underline mr-2"
-                        >
-                          Guardar
-                        </button>
-                        <button
-                          onClick={cancelarEdicion}
-                          className="text-muted text-xs hover:underline"
-                        >
-                          Cancelar
-                        </button>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="p-2 text-right">
-                        ${Number(p.precioPublico || 0).toLocaleString()}
-                      </td>
-                      <td className="p-2 text-right">
-                        ${Number(p.precioMayorista || 0).toLocaleString()}
-                      </td>
-                      <td className="p-2 text-right">
-                        {p.stock <= 0 ? (
-                          <span className="text-red-400 font-medium">{p.stock}</span>
-                        ) : (
-                          p.stock
-                        )}
-                      </td>
-                      <td className="p-2 text-muted">{p.garantia || '—'}</td>
-                      <td className="p-2">
-                        <button
-                          onClick={() => empezarEdicion(p)}
-                          className="text-brand-light text-xs hover:underline"
-                        >
-                          Editar
-                        </button>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
+                      ) : (
+                        p.codigo
+                      )}
+                    </td>
+                    <td className="p-2">
+                      {editando === p.codigo ? (
+                        <input
+                          type="text"
+                          value={valores.nombre}
+                          onChange={(e) => setValores({ ...valores, nombre: e.target.value })}
+                          className="w-full min-w-[160px] border border-line rounded-lg px-2 py-1"
+                        />
+                      ) : (
+                        p.nombre
+                      )}
+                    </td>
+                    <td className="p-2 text-right text-muted">
+                      {editando === p.codigo ? (
+                        <input
+                          type="number"
+                          value={valores.costoPromedio}
+                          onChange={(e) =>
+                            setValores({ ...valores, costoPromedio: e.target.value })
+                          }
+                          className="w-24 border border-line rounded-lg px-2 py-1 text-right"
+                        />
+                      ) : (
+                        `$${Number(p.costoPromedio || 0).toLocaleString()}`
+                      )}
+                    </td>
+
+                    {editando === p.codigo ? (
+                      <>
+                        <td className="p-2 text-right">
+                          <input
+                            type="number"
+                            value={valores.precioPublico}
+                            onChange={(e) =>
+                              setValores({ ...valores, precioPublico: e.target.value })
+                            }
+                            className="w-24 border border-line rounded-lg px-2 py-1 text-right"
+                          />
+                        </td>
+                        <td className="p-2 text-right">
+                          <input
+                            type="number"
+                            value={valores.precioMayorista}
+                            onChange={(e) =>
+                              setValores({ ...valores, precioMayorista: e.target.value })
+                            }
+                            className="w-24 border border-line rounded-lg px-2 py-1 text-right"
+                          />
+                        </td>
+                        <td className="p-2 text-right">
+                          <input
+                            type="number"
+                            value={valores.stock}
+                            onChange={(e) =>
+                              setValores({ ...valores, stock: e.target.value })
+                            }
+                            className="w-20 border border-line rounded-lg px-2 py-1 text-right"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={valores.garantia}
+                            onChange={(e) =>
+                              setValores({ ...valores, garantia: e.target.value })
+                            }
+                            placeholder="ej: 3 meses"
+                            className="w-28 border border-line rounded-lg px-2 py-1"
+                          />
+                        </td>
+                        <td className="p-2 whitespace-nowrap">
+                          <button
+                            onClick={() => guardarEdicion(p.codigo)}
+                            disabled={guardando}
+                            className="text-emerald-400 text-xs font-medium hover:underline mr-2"
+                          >
+                            Guardar
+                          </button>
+                          <button
+                            onClick={cancelarEdicion}
+                            className="text-muted text-xs hover:underline"
+                          >
+                            Cancelar
+                          </button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="p-2 text-right">
+                          ${Number(p.precioPublico || 0).toLocaleString()}
+                        </td>
+                        <td className="p-2 text-right">
+                          ${Number(p.precioMayorista || 0).toLocaleString()}
+                        </td>
+                        <td className="p-2 text-right">
+                          {stockNum < 0 ? (
+                            <span className="text-red-400 font-semibold">
+                              {stockNum} (negativo)
+                            </span>
+                          ) : stockNum === 0 ? (
+                            <span className="text-amber-400 font-medium">{stockNum}</span>
+                          ) : (
+                            stockNum
+                          )}
+                        </td>
+                        <td className="p-2 text-muted">{p.garantia || '—'}</td>
+                        <td className="p-2">
+                          <button
+                            onClick={() => empezarEdicion(p)}
+                            className="text-brand-light text-xs hover:underline"
+                          >
+                            Editar
+                          </button>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
 
