@@ -6,9 +6,9 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { generarSiguienteCodigo } from '../lib/codigos'
 import { useProductosCtx } from '../hooks/useProductosContext'
 import { useCompraDraft } from '../hooks/useCompraDraft'
+import { generarSiguienteCodigo } from '../lib/codigos'
 
 export default function Compras() {
   const { productos, buscar, aplicarAjustesLocales, agregarProductoLocal } = useProductosCtx()
@@ -42,7 +42,13 @@ export default function Compras() {
   function agregarProductoNuevo() {
     const nombre = textoBusqueda.trim()
     if (!nombre) return
-    const codigoNuevo = generarSiguienteCodigo(productos)
+
+    // Se combina el catálogo guardado CON los productos nuevos que ya están
+    // en este borrador de compra (aún sin guardar), para que cada uno reciba
+    // un código distinto en vez de repetir el mismo "siguiente" número.
+    const codigosConsiderados = [...productos, ...items]
+    const codigoNuevo = generarSiguienteCodigo(codigosConsiderados)
+
     setItems([
       ...items,
       {
@@ -73,8 +79,31 @@ export default function Compras() {
     0
   )
 
+  function validarCodigosUnicos() {
+    const vistos = new Set()
+    for (const item of items) {
+      const codigo = String(item.codigo || '').trim()
+      if (!codigo) return `Hay un producto sin código ("${item.nombre}").`
+      if (vistos.has(codigo)) {
+        return `El código "${codigo}" está repetido entre los productos de esta compra.`
+      }
+      vistos.add(codigo)
+      if (item.esNuevo && productos.some((p) => p.codigo === codigo)) {
+        return `El código "${codigo}" ya existe en el catálogo. Cámbialo o deja que sea un producto existente.`
+      }
+    }
+    return null
+  }
+
   async function guardarCompra() {
     if (items.length === 0) return
+
+    const errorValidacion = validarCodigosUnicos()
+    if (errorValidacion) {
+      setMensaje({ tipo: 'error', texto: errorValidacion })
+      return
+    }
+
     setGuardando(true)
     setMensaje(null)
 
@@ -156,7 +185,7 @@ export default function Compras() {
     <div className="p-6 max-w-3xl">
       <h1 className="text-2xl font-bold mb-2">Registrar factura de compra</h1>
       {items.length > 0 && (
-        <p className="text-xs text-amber-600 mb-2">
+        <p className="text-xs text-amber-400 mb-2">
           Tienes una compra en progreso con {items.length} producto(s). Puedes navegar a
           otros módulos sin perderla.
         </p>
@@ -171,7 +200,7 @@ export default function Compras() {
           className="w-full border border-line rounded-lg px-3 py-2"
         />
         {textoBusqueda && (
-          <div className="absolute z-10 bg-card border border-line rounded shadow-md w-full mt-1 max-h-64 overflow-y-auto">
+          <div className="absolute z-10 bg-card border border-line rounded-lg shadow-md w-full mt-1 max-h-64 overflow-y-auto">
             {resultados.map((p) => (
               <button
                 key={p.id}
@@ -184,7 +213,7 @@ export default function Compras() {
             ))}
             <button
               onClick={agregarProductoNuevo}
-              className="block w-full text-left px-3 py-2 hover:bg-amber-950/40 text-sm text-amber-400 border-t"
+              className="block w-full text-left px-3 py-2 hover:bg-amber-950/40 text-sm text-amber-400 border-t border-line"
             >
               + Crear producto nuevo: "{textoBusqueda}"
             </button>
@@ -197,6 +226,7 @@ export default function Compras() {
           <table className="w-full text-sm border border-line">
             <thead className="bg-panel">
               <tr>
+                <th className="p-2 text-left">Código (editable si es nuevo)</th>
                 <th className="p-2 text-left">Producto</th>
                 <th className="p-2 text-right">Cantidad</th>
                 <th className="p-2 text-right">Costo unitario</th>
@@ -206,7 +236,19 @@ export default function Compras() {
             </thead>
             <tbody>
               {items.map((item, idx) => (
-                <tr key={item.codigo} className="border-t">
+                <tr key={idx} className="border-t border-line">
+                  <td className="p-2 text-muted">
+                    {item.esNuevo ? (
+                      <input
+                        type="text"
+                        value={item.codigo}
+                        onChange={(e) => actualizarItem(idx, 'codigo', e.target.value)}
+                        className="w-24 border border-line rounded-md px-2 py-1"
+                      />
+                    ) : (
+                      item.codigo
+                    )}
+                  </td>
                   <td className="p-2">
                     {item.nombre}
                     {item.esNuevo && (
@@ -221,7 +263,7 @@ export default function Compras() {
                       min="1"
                       value={item.cantidad}
                       onChange={(e) => actualizarItem(idx, 'cantidad', e.target.value)}
-                      className="w-20 border border-line rounded-lg px-2 py-1 text-right"
+                      className="w-20 border border-line rounded-md px-2 py-1 text-right"
                     />
                   </td>
                   <td className="p-2 text-right">
@@ -230,7 +272,7 @@ export default function Compras() {
                       min="0"
                       value={item.costoUnitario}
                       onChange={(e) => actualizarItem(idx, 'costoUnitario', e.target.value)}
-                      className="w-28 border border-line rounded-lg px-2 py-1 text-right"
+                      className="w-28 border border-line rounded-md px-2 py-1 text-right"
                     />
                   </td>
                   <td className="p-2 text-right">
@@ -239,7 +281,7 @@ export default function Compras() {
                   <td className="p-2 text-center">
                     <button
                       onClick={() => quitarItem(idx)}
-                      className="text-red-500 text-xs hover:underline"
+                      className="text-red-400 text-xs hover:underline"
                     >
                       Quitar
                     </button>
@@ -257,10 +299,10 @@ export default function Compras() {
 
       {mensaje && (
         <div
-          className={`p-3 rounded mb-4 text-sm ${
+          className={`p-3 rounded-lg mb-4 text-sm ${
             mensaje.tipo === 'exito'
-              ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-900'
-              : 'bg-red-950/40 text-red-300 border border-red-900'
+              ? 'bg-emerald-950/40 border border-emerald-900 text-emerald-300'
+              : 'bg-red-950/40 border border-red-900 text-red-300'
           }`}
         >
           {mensaje.texto}
