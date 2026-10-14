@@ -8,13 +8,15 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 
-// Los gastos por ahora son solo una categoría fija: cobro de jornal del trabajador.
-// Se descuentan del efectivo esperado al cerrar el turno de caja.
+// Gastos que se registran al cerrar el turno de caja. Dos tipos:
+//  - 'Cobro de jornal'  → lo que se cobra el trabajador ese día
+//  - 'Otros gastos'     → cualquier otro gasto pagado con el efectivo de la caja
+// Ambos se descuentan del efectivo esperado al cuadrar.
 export function useGastos() {
-  async function registrarGasto(turnoId, monto, nota) {
+  async function registrarGasto(turnoId, monto, nota, concepto = 'Cobro de jornal') {
     await addDoc(collection(db, 'gastos'), {
       turnoId,
-      concepto: 'Cobro de jornal',
+      concepto,
       monto: Number(monto) || 0,
       nota: nota || '',
       fecha: serverTimestamp(),
