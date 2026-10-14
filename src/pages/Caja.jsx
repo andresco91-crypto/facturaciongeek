@@ -12,6 +12,8 @@ export default function Caja() {
 
   const [montoInicial, setMontoInicial] = useState('')
   const [montoJornal, setMontoJornal] = useState('')
+  const [montoOtrosGastos, setMontoOtrosGastos] = useState('')
+  const [notaOtrosGastos, setNotaOtrosGastos] = useState('')
   const [montoFinalEfectivo, setMontoFinalEfectivo] = useState('')
   const [resumen, setResumen] = useState(null)
   const [devoluciones, setDevoluciones] = useState([])
@@ -127,14 +129,20 @@ export default function Caja() {
     setMensaje(null)
 
     const jornal = Number(montoJornal) || 0
+    const otros = Number(montoOtrosGastos) || 0
+    const totalGastos = jornal + otros
+
+    // Ambos gastos salen del efectivo de la caja, así que se descuentan del esperado
     const efectivoEsperado =
-      Number(turno.montoInicial) + resumen.efectivo + (resumen.efectivoDevoluciones || 0) - jornal
+      Number(turno.montoInicial) + resumen.efectivo + (resumen.efectivoDevoluciones || 0) - totalGastos
     const diferencia = Number(montoFinalEfectivo || 0) - efectivoEsperado
 
     try {
-      // Si se ingresó un cobro de jornal, se registra como gasto ligado a este turno
       if (jornal > 0) {
-        await registrarGasto(turno.id, jornal, 'Cobro de jornal')
+        await registrarGasto(turno.id, jornal, 'Cobro de jornal', 'Cobro de jornal')
+      }
+      if (otros > 0) {
+        await registrarGasto(turno.id, otros, notaOtrosGastos.trim() || 'Otros gastos', 'Otros gastos')
       }
 
       await cerrarTurno(turno.id, montoFinalEfectivo, {
@@ -143,11 +151,13 @@ export default function Caja() {
         transferencia: resumen.transferencia,
         sistecredito: resumen.sistecredito,
         addi: resumen.addi,
-        totalGastos: jornal,
+        totalGastos,
         diferencia,
       })
       setMontoFinalEfectivo('')
       setMontoJornal('')
+      setMontoOtrosGastos('')
+      setNotaOtrosGastos('')
       setMensaje({
         tipo: 'exito',
         texto:
@@ -165,11 +175,13 @@ export default function Caja() {
   }
 
   const jornalPreview = Number(montoJornal) || 0
+  const otrosPreview = Number(montoOtrosGastos) || 0
   const efectivoEsperadoPreview = resumen
     ? Number(turno?.montoInicial || 0) +
       resumen.efectivo +
       (resumen.efectivoDevoluciones || 0) -
-      jornalPreview
+      jornalPreview -
+      otrosPreview
     : 0
 
   if (cargando) {
@@ -182,10 +194,10 @@ export default function Caja() {
 
       {mensaje && (
         <div
-          className={`p-3 rounded mb-4 text-sm ${
+          className={`p-3 rounded-lg mb-4 text-sm ${
             mensaje.tipo === 'exito'
-              ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-900'
-              : 'bg-red-950/40 text-red-300 border border-red-900'
+              ? 'bg-emerald-950/40 border border-emerald-900 text-emerald-300'
+              : 'bg-red-950/40 border border-red-900 text-red-300'
           }`}
         >
           {mensaje.texto}
@@ -193,7 +205,7 @@ export default function Caja() {
       )}
 
       {!turno && (
-        <div className="bg-card border border-line rounded p-6">
+        <div className="bg-card border border-line rounded-xl p-6">
           <p className="text-slate-300 mb-4">
             No hay ningún turno de caja abierto. Debes abrir uno para poder registrar ventas.
           </p>
@@ -221,7 +233,7 @@ export default function Caja() {
       )}
 
       {turno && (
-        <div className="bg-card border border-line rounded p-6">
+        <div className="bg-card border border-line rounded-xl p-6">
           {!editandoBase ? (
             <div className="flex items-center gap-3 mb-4">
               <p className="text-sm text-muted">
@@ -378,8 +390,8 @@ export default function Caja() {
             </div>
           )}
 
-          <div className="border-t pt-4">
-            <p className="font-medium mb-2">Cerrar turno</p>
+          <div className="border-t border-line pt-4">
+            <p className="font-medium mb-3">Cerrar turno</p>
 
             <label className="block text-sm font-medium text-slate-200 mb-1">
               Cobro de jornal del trabajador (opcional)
@@ -392,8 +404,29 @@ export default function Caja() {
               placeholder="0"
               className="border border-line rounded-lg px-3 py-2 w-48 mb-3"
             />
+
+            <label className="block text-sm font-medium text-slate-200 mb-1">
+              Otros gastos (opcional)
+            </label>
+            <div className="flex flex-wrap gap-2 mb-1">
+              <input
+                type="number"
+                min="0"
+                value={montoOtrosGastos}
+                onChange={(e) => setMontoOtrosGastos(e.target.value)}
+                placeholder="0"
+                className="border border-line rounded-lg px-3 py-2 w-48"
+              />
+              <input
+                type="text"
+                value={notaOtrosGastos}
+                onChange={(e) => setNotaOtrosGastos(e.target.value)}
+                placeholder="¿En qué fue? (ej: domicilio, almuerzo)"
+                className="border border-line rounded-lg px-3 py-2 flex-1 min-w-[200px]"
+              />
+            </div>
             <p className="text-xs text-muted mb-4">
-              Este valor se descuenta del efectivo esperado en caja.
+              El jornal y los otros gastos se descuentan del efectivo esperado en caja.
             </p>
 
             {resumen && (
@@ -402,13 +435,14 @@ export default function Caja() {
                 ventas en efectivo (${resumen.efectivo.toLocaleString()})
                 {resumen.efectivoDevoluciones !== 0 &&
                   ` ${resumen.efectivoDevoluciones > 0 ? '+' : '−'} devoluciones ($${Math.abs(resumen.efectivoDevoluciones).toLocaleString()})`}
-                {' '}− jornal (${jornalPreview.toLocaleString()}) ={' '}
+                {' '}− jornal (${jornalPreview.toLocaleString()}) − otros gastos (${otrosPreview.toLocaleString()}) ={' '}
                 <strong>${efectivoEsperadoPreview.toLocaleString()}</strong>
               </p>
             )}
 
             <label className="block text-sm font-medium text-slate-200 mb-1">
-              Monto contado físicamente en caja (solo efectivo) <span className="text-red-400">*obligatorio</span>
+              Monto contado físicamente en caja (solo efectivo){' '}
+              <span className="text-red-400">*obligatorio</span>
             </label>
             <input
               type="number"
@@ -422,7 +456,7 @@ export default function Caja() {
               <button
                 onClick={handleCerrarTurno}
                 disabled={procesando || !resumen || montoFinalEfectivo === ''}
-                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50"
               >
                 {procesando ? 'Cerrando...' : 'Cerrar turno y cuadrar caja'}
               </button>
