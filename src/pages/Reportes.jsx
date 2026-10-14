@@ -62,6 +62,15 @@ export default function Reportes() {
       const snapCompras = await getDocs(qCompras)
       const compras = snapCompras.docs.map((d) => d.data()).filter((c) => c.anulada !== true)
 
+      // Gastos registrados al cerrar cada turno: cobro de jornal y otros gastos
+      const qGastos = query(
+        collection(db, 'gastos'),
+        where('fecha', '>=', fechaDesde),
+        where('fecha', '<=', fechaHasta)
+      )
+      const snapGastos = await getDocs(qGastos)
+      const gastos = snapGastos.docs.map((d) => d.data())
+
       // Catálogo actual, para conocer el costo promedio de hoy de cada producto
       const snapProductos = await getDocs(collection(db, 'productos'))
       const costoPorCodigo = {}
@@ -109,6 +118,28 @@ export default function Reportes() {
         totalCompras += Number(compra.total) || 0
       }
 
+      // 'Otros gastos' se separan del jornal; los registros antiguos (sin
+      // tipo distinto) cuentan como jornal.
+      let totalGastos = 0
+      let cantidadJornal = 0
+      let totalOtrosGastos = 0
+      const otrosGastosLista = []
+      for (const gasto of gastos) {
+        const monto = Number(gasto.monto) || 0
+        if (gasto.concepto === 'Otros gastos') {
+          totalOtrosGastos += monto
+          otrosGastosLista.push(gasto)
+        } else {
+          totalGastos += monto
+          cantidadJornal += 1
+        }
+      }
+      otrosGastosLista.sort((a, b) => {
+        const fa = a.fecha?.toMillis ? a.fecha.toMillis() : 0
+        const fb = b.fecha?.toMillis ? b.fecha.toMillis() : 0
+        return fb - fa
+      })
+
       const productos = Object.entries(conteoPorProducto)
         .map(([codigo, datos]) => ({ codigo, ...datos }))
         .sort((a, b) => b.cantidad - a.cantidad)
@@ -116,8 +147,13 @@ export default function Reportes() {
       setResultado({
         cantidadVentas: ventas.length,
         cantidadCompras: compras.length,
+        cantidadGastos: cantidadJornal,
+        cantidadOtrosGastos: otrosGastosLista.length,
         totalVentas,
         totalCompras,
+        totalGastos,
+        totalOtrosGastos,
+        otrosGastosLista,
         gananciaEstimada,
         productos,
       })
@@ -175,7 +211,7 @@ export default function Reportes() {
               ? `Resumen del ${formatearFechaISO(desde)}`
               : `Resumen total del ${formatearFechaISO(desde)} al ${formatearFechaISO(hasta)}`}
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
             <div className="bg-card border border-line rounded p-4">
               <p className="text-muted text-sm">Ventas</p>
               <p className="text-xl font-bold">${resultado.totalVentas.toLocaleString()}</p>
@@ -186,16 +222,60 @@ export default function Reportes() {
               <p className="text-xl font-bold">${resultado.totalCompras.toLocaleString()}</p>
               <p className="text-xs text-muted">{resultado.cantidadCompras} facturas</p>
             </div>
-            <div className="bg-card border border-line rounded p-4 col-span-2 md:col-span-2">
+            <div className="bg-amber-950/30 border border-amber-800 rounded p-4">
+              <p className="text-amber-400 text-sm">Gasto del trabajador</p>
+              <p className="text-xl font-bold text-amber-400">
+                ${resultado.totalGastos.toLocaleString()}
+              </p>
+              <p className="text-xs text-amber-400/70">
+                {resultado.cantidadGastos} cobro(s) de jornal
+              </p>
+            </div>
+            <div className="bg-amber-950/30 border border-amber-800 rounded p-4">
+              <p className="text-amber-400 text-sm">Otros gastos</p>
+              <p className="text-xl font-bold text-amber-400">
+                ${resultado.totalOtrosGastos.toLocaleString()}
+              </p>
+              <p className="text-xs text-amber-400/70">
+                {resultado.cantidadOtrosGastos} gasto(s)
+              </p>
+            </div>
+            <div className="bg-card border border-line rounded p-4 col-span-2 md:col-span-1">
               <p className="text-muted text-sm">Ganancia estimada</p>
               <p className="text-xl font-bold text-emerald-400">
                 ${resultado.gananciaEstimada.toLocaleString()}
               </p>
-              <p className="text-xs text-muted">
-                Calculada con el costo promedio actual de cada producto (aproximado)
-              </p>
+              <p className="text-xs text-muted">Aproximada (costo promedio actual)</p>
             </div>
           </div>
+
+          {resultado.otrosGastosLista.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold mb-2">Detalle de otros gastos</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-line bg-card">
+                  <thead className="bg-panel">
+                    <tr>
+                      <th className="p-2 text-left">Fecha</th>
+                      <th className="p-2 text-left">Concepto</th>
+                      <th className="p-2 text-right">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resultado.otrosGastosLista.map((g, idx) => (
+                      <tr key={idx} className="border-t border-line">
+                        <td className="p-2 text-muted">
+                          {g.fecha?.toDate ? g.fecha.toDate().toLocaleDateString('es-CO') : '—'}
+                        </td>
+                        <td className="p-2">{g.nota || 'Otros gastos'}</td>
+                        <td className="p-2 text-right">${Number(g.monto).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <h2 className="text-lg font-semibold mb-1">
             Artículos vendidos {esUnSoloDia ? 'ese día' : 'en todo el rango'}
