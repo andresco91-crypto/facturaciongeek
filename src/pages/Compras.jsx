@@ -19,11 +19,10 @@ export default function Compras() {
 
   const resultados = buscar(textoBusqueda)
 
+  // Cada clic agrega una línea NUEVA, aunque el producto ya esté en la compra:
+  // así se puede comprar el mismo código varias veces con costos distintos.
+  // Al guardar, el inventario promedia el costo de todas esas líneas.
   function agregarProductoExistente(producto) {
-    if (items.some((i) => i.codigo === producto.codigo)) {
-      setTextoBusqueda('')
-      return
-    }
     setItems([
       ...items,
       {
@@ -79,17 +78,21 @@ export default function Compras() {
     0
   )
 
+  // Un mismo código puede repetirse en varias líneas SOLO si es un producto
+  // que ya existe. Los productos nuevos deben tener código único.
   function validarCodigosUnicos() {
-    const vistos = new Set()
+    const nuevosVistos = new Set()
     for (const item of items) {
       const codigo = String(item.codigo || '').trim()
       if (!codigo) return `Hay un producto sin código ("${item.nombre}").`
-      if (vistos.has(codigo)) {
-        return `El código "${codigo}" está repetido entre los productos de esta compra.`
-      }
-      vistos.add(codigo)
-      if (item.esNuevo && productos.some((p) => p.codigo === codigo)) {
-        return `El código "${codigo}" ya existe en el catálogo. Cámbialo o deja que sea un producto existente.`
+      if (item.esNuevo) {
+        if (nuevosVistos.has(codigo)) {
+          return `El código "${codigo}" está repetido entre los productos nuevos de esta compra.`
+        }
+        nuevosVistos.add(codigo)
+        if (productos.some((p) => p.codigo === codigo)) {
+          return `El código "${codigo}" ya existe en el catálogo. Cámbialo o agrega el producto existente.`
+        }
       }
     }
     return null
@@ -108,50 +111,66 @@ export default function Compras() {
     setMensaje(null)
 
     try {
+      // Se recorren las líneas en orden y se va acumulando, por código, el
+      // stock y el costo promedio ponderado. Así, si un mismo código aparece
+      // en varias líneas con costos distintos, el resultado final es el
+      // promedio de todas (y no se pisan unas a otras).
+      const estado = {} // codigo -> { nombre, esNuevo, stock, costo }
+
+      for (const item of items) {
+        const codigo = String(item.codigo).trim()
+        const cantidad = Number(item.cantidad) || 0
+        const costoNuevo = Number(item.costoUnitario) || 0
+
+        if (!estado[codigo]) {
+          estado[codigo] = {
+            nombre: item.nombre,
+            esNuevo: !!item.esNuevo,
+            stock: Number(item.stockActual) || 0,
+            costo: Number(item.costoActual) || 0,
+          }
+        }
+        const e = estado[codigo]
+
+        // Si el stock estaba en negativo, no se usa para ponderar el costo
+        const stockBase = Math.max(e.stock, 0)
+        const unidadesPromedio = stockBase + cantidad
+        e.costo =
+          unidadesPromedio > 0
+            ? (stockBase * e.costo + cantidad * costoNuevo) / unidadesPromedio
+            : costoNuevo
+        e.stock = e.stock + cantidad
+      }
+
       const batch = writeBatch(db)
       const ajustesExistentes = []
       const productosNuevos = []
 
-      for (const item of items) {
-        const cantidad = Number(item.cantidad) || 0
-        const costoNuevo = Number(item.costoUnitario) || 0
-        const stockActual = Number(item.stockActual) || 0
-        const costoActual = Number(item.costoActual) || 0
+      for (const [codigo, e] of Object.entries(estado)) {
+        const productoRef = doc(db, 'productos', codigo)
 
-        const nuevoStock = stockActual + cantidad
-
-        let nuevoCosto
-        if (nuevoStock <= 0) {
-          nuevoCosto = costoNuevo
-        } else {
-          nuevoCosto =
-            (stockActual * costoActual + cantidad * costoNuevo) / nuevoStock
-        }
-
-        const productoRef = doc(db, 'productos', item.codigo)
-
-        if (item.esNuevo) {
+        if (e.esNuevo) {
           const nuevoProducto = {
-            codigo: item.codigo,
-            nombre: item.nombre,
-            costoPromedio: costoNuevo,
+            codigo,
+            nombre: e.nombre,
+            costoPromedio: e.costo,
             precioPublico: 0,
             precioMayorista: 0,
-            stock: cantidad,
+            stock: e.stock,
             garantia: '',
           }
           batch.set(productoRef, nuevoProducto)
-          productosNuevos.push({ id: item.codigo, ...nuevoProducto })
+          productosNuevos.push({ id: codigo, ...nuevoProducto })
         } else {
           batch.set(
             productoRef,
-            { stock: nuevoStock, costoPromedio: nuevoCosto },
+            { stock: e.stock, costoPromedio: e.costo },
             { merge: true }
           )
           ajustesExistentes.push({
-            codigo: item.codigo,
-            nuevoStock,
-            nuevoCosto,
+            codigo,
+            nuevoStock: e.stock,
+            nuevoCosto: e.costo,
           })
         }
       }
@@ -160,7 +179,7 @@ export default function Compras() {
       batch.set(compraRef, {
         fecha: serverTimestamp(),
         items: items.map((i) => ({
-          codigo: i.codigo,
+          codigo: String(i.codigo).trim(),
           nombre: i.nombre,
           cantidad: Number(i.cantidad) || 0,
           costoUnitario: Number(i.costoUnitario) || 0,
@@ -170,7 +189,10 @@ export default function Compras() {
 
       await batch.commit()
 
-      setMensaje({ tipo: 'exito', texto: `Compra registrada: ${items.length} producto(s) actualizados.` })
+      setMensaje({
+        tipo: 'exito',
+        texto: `Compra registrada: ${items.length} línea(s), ${Object.keys(estado).length} producto(s) actualizados.`,
+      })
       setItems([]) // limpia el borrador solo cuando la compra se guarda con éxito
       aplicarAjustesLocales(ajustesExistentes)
       productosNuevos.forEach((p) => agregarProductoLocal(p))
@@ -186,10 +208,14 @@ export default function Compras() {
       <h1 className="text-2xl font-bold mb-2">Registrar factura de compra</h1>
       {items.length > 0 && (
         <p className="text-xs text-amber-400 mb-2">
-          Tienes una compra en progreso con {items.length} producto(s). Puedes navegar a
+          Tienes una compra en progreso con {items.length} línea(s). Puedes navegar a
           otros módulos sin perderla.
         </p>
       )}
+      <p className="text-xs text-muted mb-3">
+        Puedes agregar el mismo producto varias veces con costos distintos; al guardar, el
+        inventario promedia el costo.
+      </p>
 
       <div className="relative mb-4">
         <input
