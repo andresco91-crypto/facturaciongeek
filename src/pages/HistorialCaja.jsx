@@ -5,11 +5,14 @@ import {
   where,
   orderBy,
   getDocs,
+  doc,
+  updateDoc,
+  arrayUnion,
+  Timestamp,
 } from 'firebase/firestore'
-import { Timestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { useTurno } from '../hooks/useTurno'
 import { useRole } from '../hooks/useRole'
+import { useGastos } from '../hooks/useGastos'
 
 // Fecha local del navegador, no UTC (toISOString desplaza el día en
 // zonas horarias como Colombia, UTC-5).
@@ -37,9 +40,9 @@ function formatearFecha(fecha) {
 }
 
 export default function HistorialCaja() {
-  const { editarCierre } = useTurno()
   const { rol } = useRole()
   const esAdmin = rol === 'admin'
+  const { obtenerGastosDelTurno, sincronizarGastosDelTurno } = useGastos()
 
   const [desde, setDesde] = useState(hace7DiasISO())
   const [hasta, setHasta] = useState(hoyISO())
@@ -84,14 +87,26 @@ export default function HistorialCaja() {
     setEditandoId(null)
   }
 
-  function empezarEdicion(t) {
-    setEditandoId(t.id)
-    setValoresEdicion({
-      montoInicial: t.montoInicial ?? 0,
-      montoFinalEfectivo: t.montoFinalEfectivo ?? 0,
-      totalGastos: t.totalGastos ?? 0,
-    })
+  async function empezarEdicion(t) {
     setError('')
+    try {
+      // Se separa el total de gastos del turno en jornal y otros gastos.
+      const lista = await obtenerGastosDelTurno(t.id)
+      const otros = lista
+        .filter((g) => g.concepto === 'Otros gastos')
+        .reduce((acc, g) => acc + (Number(g.monto) || 0), 0)
+      const jornal = Math.max((Number(t.totalGastos) || 0) - otros, 0)
+
+      setValoresEdicion({
+        montoInicial: t.montoInicial ?? 0,
+        montoFinalEfectivo: t.montoFinalEfectivo ?? 0,
+        jornal,
+        otros,
+      })
+      setEditandoId(t.id)
+    } catch (err) {
+      setError('No se pudo abrir la corrección: ' + err.message)
+    }
   }
 
   function cancelarEdicion() {
@@ -103,15 +118,54 @@ export default function HistorialCaja() {
     setProcesando(true)
     setError('')
     try {
-      const nuevaDiferencia = await editarCierre(t.id, valoresEdicion, t)
+      const baseNueva = Number(valoresEdicion.montoInicial) || 0
+      const finalNuevo = Number(valoresEdicion.montoFinalEfectivo) || 0
+      const jornalNuevo = Number(valoresEdicion.jornal) || 0
+      const otrosNuevo = Number(valoresEdicion.otros) || 0
+      const gastosNuevos = jornalNuevo + otrosNuevo
+
+      const baseAnterior = Number(t.montoInicial) || 0
+      const finalAnterior = Number(t.montoFinalEfectivo) || 0
+      const gastosAnteriores = Number(t.totalGastos) || 0
+      const diferenciaAnterior = Number(t.diferencia) || 0
+
+      // diferencia = efectivo contado − (base + ventas en efectivo ± devoluciones − gastos)
+      // Se ajusta por lo que cambió, así se conserva todo lo demás del cuadre.
+      const nuevaDiferencia =
+        diferenciaAnterior +
+        (finalNuevo - finalAnterior) -
+        (baseNueva - baseAnterior) +
+        (gastosNuevos - gastosAnteriores)
+
+      // Primero los gastos: es lo que lee Reportes.
+      await sincronizarGastosDelTurno(t.id, jornalNuevo, otrosNuevo, t.fechaCierre)
+
+      await updateDoc(doc(db, 'turnos', t.id), {
+        montoInicial: baseNueva,
+        montoFinalEfectivo: finalNuevo,
+        totalGastos: gastosNuevos,
+        diferencia: nuevaDiferencia,
+        edicionesCierre: arrayUnion({
+          montoInicialAnterior: baseAnterior,
+          montoFinalAnterior: finalAnterior,
+          totalGastosAnterior: gastosAnteriores,
+          diferenciaAnterior,
+          montoInicialNuevo: baseNueva,
+          montoFinalNuevo: finalNuevo,
+          totalGastosNuevo: gastosNuevos,
+          diferenciaNueva: nuevaDiferencia,
+          fecha: Timestamp.now(),
+        }),
+      })
+
       setTurnos((prev) =>
         prev.map((turno) =>
           turno.id === t.id
             ? {
                 ...turno,
-                montoInicial: Number(valoresEdicion.montoInicial) || 0,
-                montoFinalEfectivo: Number(valoresEdicion.montoFinalEfectivo) || 0,
-                totalGastos: Number(valoresEdicion.totalGastos) || 0,
+                montoInicial: baseNueva,
+                montoFinalEfectivo: finalNuevo,
+                totalGastos: gastosNuevos,
                 diferencia: nuevaDiferencia,
                 edicionesCierre: [...(turno.edicionesCierre || []), { fecha: new Date() }],
               }
@@ -243,20 +297,31 @@ export default function HistorialCaja() {
                           </div>
                           <div>
                             <label className="block text-xs text-muted mb-1">
-                              Gastos (jornal)
+                              Gasto del trabajador (jornal)
                             </label>
                             <input
                               type="number"
-                              value={valoresEdicion.totalGastos}
+                              value={valoresEdicion.jornal}
                               onChange={(e) =>
-                                setValoresEdicion({ ...valoresEdicion, totalGastos: e.target.value })
+                                setValoresEdicion({ ...valoresEdicion, jornal: e.target.value })
+                              }
+                              className="w-40 border border-line rounded-lg px-2 py-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-muted mb-1">Otros gastos</label>
+                            <input
+                              type="number"
+                              value={valoresEdicion.otros}
+                              onChange={(e) =>
+                                setValoresEdicion({ ...valoresEdicion, otros: e.target.value })
                               }
                               className="w-40 border border-line rounded-lg px-2 py-1"
                             />
                           </div>
                           <p className="text-xs text-amber-400">
-                            Las ventas por método de pago no se pueden editar aquí (vienen de las
-                            facturas reales). Solo se corrige base, efectivo contado y jornal.
+                            Los gastos corregidos también se actualizan en Reportes. Las ventas
+                            por método de pago no se editan aquí (vienen de las facturas reales).
                           </p>
                           <div className="flex gap-3 pt-1">
                             <button
@@ -295,7 +360,7 @@ export default function HistorialCaja() {
                             <p>Ventas Addi: ${Number(t.totalVentasAddi).toLocaleString()}</p>
                           )}
                           {t.totalGastos > 0 && (
-                            <p>Gastos (jornal): ${Number(t.totalGastos).toLocaleString()}</p>
+                            <p>Gastos (jornal y otros): ${Number(t.totalGastos).toLocaleString()}</p>
                           )}
                           <p>Efectivo contado al cierre: ${Number(t.montoFinalEfectivo || 0).toLocaleString()}</p>
                           <p className="font-semibold pt-1 border-t border-line mt-1">
