@@ -2,6 +2,7 @@ import { useState } from 'react'
 import * as XLSX from 'xlsx'
 import { collection, doc, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { sincronizarWebCompleto } from '../lib/sincronizarWeb'
 
 // Tamaño de lote: Firestore permite máximo 500 operaciones por batch
 const TAMANO_LOTE = 400
@@ -57,7 +58,6 @@ export default function ImportarExcel() {
       precioPublico,
       precioMayorista,
       stock,
-      garantia: '', // se deja en blanco, se completa manualmente después
     }
   }
 
@@ -80,7 +80,9 @@ export default function ImportarExcel() {
             continue
           }
           const ref = doc(productosRef, producto.codigo)
-          batch.set(ref, producto)
+          // merge: conserva los campos que el Excel no trae (garantía,
+          // categoría, vínculo con la página web).
+          batch.set(ref, producto, { merge: true })
           importados++
         }
 
@@ -90,6 +92,10 @@ export default function ImportarExcel() {
 
       setResumen({ importados, saltados, total: vistaPrevia.length })
       setEstado('hecho')
+      // Precios y stock pudieron cambiar: la web recibe la lista completa.
+      sincronizarWebCompleto().catch((err) =>
+        console.error('Sincronización web pendiente:', err.message)
+      )
     } catch (err) {
       setMensajeError('Error al importar a Firestore: ' + err.message)
       setEstado('error')

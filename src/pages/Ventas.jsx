@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { obtenerSiguienteNumeroFactura } from '../lib/contadores'
+import { encolarWeb, procesarColaWeb } from '../lib/sincronizarWeb'
 import { useProductosCtx } from '../hooks/useProductosContext'
 import { useTurno } from '../hooks/useTurno'
 import { useRole } from '../hooks/useRole'
@@ -224,9 +225,16 @@ export default function Ventas() {
       // vuelva la señal. Si esperáramos aquí (`await batch.commit()`), la
       // pantalla se quedaría congelada sin internet hasta que regrese la
       // conexión.
-      batch.commit().catch((err) => {
-        console.error('Pendiente de sincronizar (sin internet por ahora):', err)
-      })
+      // Aviso a geekstore.com.co: los códigos quedan en la cola al instante
+      // (no depende de internet ni frena la venta) y se envían cuando la
+      // venta quede guardada; si no hay señal, se reintenta solo más tarde.
+      encolarWeb(items.map((i) => i.codigo))
+      batch
+        .commit()
+        .then(() => procesarColaWeb())
+        .catch((err) => {
+          console.error('Pendiente de sincronizar (sin internet por ahora):', err)
+        })
 
       setUltimaVenta({
         fecha: new Date(),

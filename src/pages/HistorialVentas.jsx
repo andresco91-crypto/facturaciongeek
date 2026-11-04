@@ -12,6 +12,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { avisarWeb } from '../lib/sincronizarWeb'
 import { useTurno } from '../hooks/useTurno'
 import { useDevoluciones } from '../hooks/useDevoluciones'
 
@@ -139,6 +140,7 @@ export default function HistorialVentas() {
       })
 
       await batch.commit()
+      avisarWeb((venta.items || []).map((i) => i.codigo))
 
       setVentas((prev) =>
         prev.map((v) => (v.id === venta.id ? { ...v, anulada: true } : v))

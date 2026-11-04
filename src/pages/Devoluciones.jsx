@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { doc, writeBatch, increment } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { avisarWeb } from '../lib/sincronizarWeb'
 import { useProductosCtx } from '../hooks/useProductosContext'
 import { useTurno } from '../hooks/useTurno'
 import { useDevoluciones } from '../hooks/useDevoluciones'
@@ -84,6 +85,7 @@ export default function Devoluciones() {
       }
 
       await batch.commit()
+      avisarWeb(ajustesLocales.map((a) => a.codigo))
 
       await registrarDevolucion({
         tipo,

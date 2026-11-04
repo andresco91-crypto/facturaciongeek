@@ -12,6 +12,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { avisarWeb } from '../lib/sincronizarWeb'
 import { useProductosCtx } from '../hooks/useProductosContext'
 
 function hoyISO() {
@@ -127,6 +128,7 @@ export default function HistorialCompras() {
       })
 
       await batch.commit()
+      avisarWeb(itemsEdicion.map((i) => i.codigo))
 
       setCompras((prev) =>
         prev.map((c) =>
@@ -171,6 +173,7 @@ export default function HistorialCompras() {
       })
 
       await batch.commit()
+      avisarWeb((compra.items || []).map((i) => i.codigo))
 
       setCompras((prev) =>
         prev.map((c) => (c.id === compra.id ? { ...c, anulada: true } : c))

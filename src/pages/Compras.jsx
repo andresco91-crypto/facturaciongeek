@@ -6,6 +6,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { avisarWeb } from '../lib/sincronizarWeb'
 import { useProductosCtx } from '../hooks/useProductosContext'
 import { useCompraDraft } from '../hooks/useCompraDraft'
 import { generarSiguienteCodigo } from '../lib/codigos'
@@ -188,6 +189,7 @@ export default function Compras() {
       })
 
       await batch.commit()
+      avisarWeb(Object.keys(estado))
 
       setMensaje({
         tipo: 'exito',

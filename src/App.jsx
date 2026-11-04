@@ -30,6 +30,8 @@ import { useRecordatorioCaja } from './hooks/useRecordatorioCaja'
 import { useTurno } from './hooks/useTurno'
 import { useConteosCaja } from './hooks/useConteosCaja'
 import { useDevoluciones } from './hooks/useDevoluciones'
+import { useColaWeb } from './hooks/useColaWeb'
+import { iniciarSincronizacionWeb } from './lib/sincronizarWeb'
 import Login from './pages/Login'
 import SelectorRol from './pages/SelectorRol'
 import ImportarExcel from './pages/ImportarExcel'
@@ -168,6 +170,11 @@ function AppLayout() {
   const [cargandoEsperado, setCargandoEsperado] = useState(false)
 
   const itemsVisibles = NAV_ITEMS.filter((item) => !item.admin || esAdmin)
+  const { pendientes: pendientesWeb } = useColaWeb()
+
+  // Conexión con geekstore.com.co: envía los avisos pendientes, hace la
+  // sincronización del día y reintenta cada 5 minutos y al volver internet.
+  useEffect(() => iniciarSincronizacionWeb(), [])
 
   // Cuando se activa la alerta, calcula cuánto efectivo debería haber en
   // caja en este momento (base + ventas en efectivo + devoluciones), para
@@ -253,6 +260,15 @@ function AppLayout() {
             </div>
           </div>
 
+          <div className="flex items-center gap-3">
+          {pendientesWeb > 0 && (
+            <span
+              title="Se enviarán solos a geekstore.com.co cuando haya conexión"
+              className="hidden sm:inline text-xs bg-amber-950/60 text-amber-300 px-2 py-1 rounded"
+            >
+              {pendientesWeb} cambio(s) sin enviar a la web
+            </span>
+          )}
           <div className="relative">
             <button
               onClick={() => setPerfilAbierto(!perfilAbierto)}
@@ -286,6 +302,7 @@ function AppLayout() {
                 </button>
               </div>
             )}
+          </div>
           </div>
         </header>
 
