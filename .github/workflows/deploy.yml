@@ -15,7 +15,7 @@ jobs:
       - name: Instalar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Instalar dependencias
         run: npm install
@@ -29,6 +29,8 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_GEEK_API_URL: https://geekstore-pos.netlify.app
+          VITE_GEEK_API_KEY: ${{ secrets.VITE_GEEK_API_KEY }}
 
       - name: Desplegar la carpeta dist a Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
