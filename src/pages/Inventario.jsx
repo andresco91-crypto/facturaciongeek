@@ -11,6 +11,7 @@ import {
   publicarProducto,
   obtenerEstadoWeb,
   sincronizarWebCompleto,
+  precioEntero,
   avisarWeb,
   probarConexion,
 } from '../lib/sincronizarWeb'
@@ -53,16 +54,23 @@ function EtiquetaWeb({ producto, estado }) {
         En la página <ExternalLink size={12} />
       </a>
     )
+  } else if ((estado.faltan || []).length > 0) {
+    // 'faltan' viene de Kennedy y dice exactamente qué le falta para salir en la página.
+    const faltan = estado.faltan.map((f) =>
+      typeof f === 'string' ? f : f?.texto || f?.campo || JSON.stringify(f)
+    )
+    etiqueta = (
+      <span
+        className="text-xs bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded"
+        title={'Para salir en la página falta: ' + faltan.join(', ')}
+      >
+        Falta: {faltan.join(', ')}
+      </span>
+    )
   } else if (estado.publicado && estado.completo && Number(estado.stock) <= 0) {
     etiqueta = (
       <span className="text-xs bg-red-950/60 text-red-300 px-2 py-0.5 rounded">
         Sin stock en la web
-      </span>
-    )
-  } else if ((estado.faltan || []).length > 0) {
-    etiqueta = (
-      <span className="text-xs bg-amber-950/60 text-amber-300 px-2 py-0.5 rounded">
-        Falta: {estado.faltan.join(', ')}
       </span>
     )
   } else if (!estado.publicado) {
@@ -422,8 +430,8 @@ export default function Inventario() {
         codigo: nuevoCodigo,
         nombre: String(valores.nombre).trim(),
         categoria: valores.categoria || '',
-        precioPublico: Number(valores.precioPublico) || 0,
-        precioMayorista: Number(valores.precioMayorista) || 0,
+        precioPublico: precioEntero(valores.precioPublico),
+        precioMayorista: precioEntero(valores.precioMayorista),
         costoPromedio: Number(valores.costoPromedio) || 0,
         garantia: String(valores.garantia || '').trim(),
         stock: Number(valores.stock) || 0,

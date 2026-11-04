@@ -117,12 +117,22 @@ async function llamarApi(ruta, { method = 'GET', body } = {}) {
   }
 }
 
+// Precio como número entero de pesos, sin '$' ni puntos: 120000.
+// Acepta lo que haya guardado: 120000, "120000", "$120.000", "120.000,00".
+export function precioEntero(valor) {
+  if (typeof valor === 'number') return Number.isFinite(valor) ? Math.max(0, Math.round(valor)) : 0
+  let texto = String(valor ?? '').trim()
+  texto = texto.replace(/[.,]\d{1,2}$/, '') // quita centavos (",00" o ".5")
+  const soloDigitos = texto.replace(/\D/g, '') // quita $, puntos, comas y espacios
+  return soloDigitos ? Number(soloDigitos) : 0
+}
+
 // Convierte un producto del POS al formato que espera la web.
 function itemWeb(producto) {
   return {
     codigo: producto.codigo,
     stock: Math.max(0, Math.trunc(Number(producto.stock) || 0)),
-    precio: Number(producto.precioPublico) || 0,
+    precio: precioEntero(producto.precioPublico),
   }
 }
 
@@ -135,7 +145,7 @@ export async function publicarProducto(producto) {
     body: {
       codigo: producto.codigo,
       nombre: producto.nombre,
-      precio: Number(producto.precioPublico) || 0,
+      precio: precioEntero(producto.precioPublico),
       stock: Math.max(0, Math.trunc(Number(producto.stock) || 0)),
     },
   })
