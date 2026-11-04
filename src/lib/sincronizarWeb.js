@@ -48,11 +48,21 @@ const TAMANO_CONSULTA = 30 // máximo de valores por consulta 'in' en Firestore
 // Llamadas a la API de Kennedy
 // ---------------------------------------------------------------------------
 
+// Error de la API. Kennedy responde { ok:false, codigo, paso, error }, donde
+// codigo es 'clave' (401), 'datos' (400), 'lento' (504) o 'error' (500).
 export class ErrorWeb extends Error {
-  constructor(mensaje, status) {
+  constructor(mensaje, status, codigo = null, paso = null) {
     super(mensaje)
     this.status = status
+    this.codigo = codigo
+    this.paso = paso
   }
+}
+
+const ESPERA_REINTENTO_MS = 3000
+
+function esperar(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 async function llamarApi(ruta, { method = 'GET', body } = {}) {
@@ -60,36 +70,51 @@ async function llamarApi(ruta, { method = 'GET', body } = {}) {
     throw new ErrorWeb('Falta configurar la clave de la web (VITE_GEEK_API_KEY).', 0)
   }
 
-  let respuesta
-  try {
-    respuesta = await fetch(API_URL + ruta, {
-      method,
-      headers: {
-        'x-sede-clave': API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    })
-  } catch {
-    throw new ErrorWeb('No hay conexión con la página web.', 0)
-  }
+  // Si Kennedy está lento (504) o falla (5xx), se reintenta UNA vez a los 3 s.
+  for (let intento = 1; ; intento++) {
+    let respuesta
+    try {
+      respuesta = await fetch(API_URL + ruta, {
+        method,
+        headers: {
+          'x-sede-clave': API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      })
+    } catch {
+      throw new ErrorWeb('No hay conexión con la página web.', 0)
+    }
 
-  if (respuesta.status === 401) {
-    throw new ErrorWeb('Clave de la web inválida.', 401)
-  }
+    let datos = null
+    try {
+      datos = await respuesta.json()
+    } catch {
+      datos = null
+    }
 
-  let datos = null
-  try {
-    datos = await respuesta.json()
-  } catch {
-    datos = null
-  }
+    if (respuesta.ok && datos && datos.ok !== false) {
+      return datos
+    }
 
-  if (!respuesta.ok || !datos || datos.ok === false) {
-    const texto = (datos && datos.error) || `La página web respondió con un error (${respuesta.status}).`
-    throw new ErrorWeb(texto, respuesta.status)
+    if (respuesta.status >= 500 && intento === 1) {
+      await esperar(ESPERA_REINTENTO_MS)
+      continue
+    }
+
+    // Sin JSON: la falla fue de Netlify, antes de llegar al código de Kennedy.
+    if (!datos) {
+      throw new ErrorWeb(`Kennedy no respondió (código ${respuesta.status}).`, respuesta.status)
+    }
+
+    // Con JSON: se muestra el mensaje de Kennedy tal cual.
+    throw new ErrorWeb(
+      datos.error || `Kennedy respondió con un error (código ${respuesta.status}).`,
+      respuesta.status,
+      datos.codigo || null,
+      datos.paso || null
+    )
   }
-  return datos
 }
 
 // Convierte un producto del POS al formato que espera la web.
@@ -130,6 +155,12 @@ export async function publicarProducto(producto) {
   }
 
   return { producto: p, enlace: datos.enlace, web }
+}
+
+// Diagnóstico de la conexión con Kennedy (botón "Probar conexión").
+// Responde { ok, baseDeDatosMs, productos, origenPermitido, whatsapp, ia, quitarFondo }.
+export async function probarConexion() {
+  return llamarApi('/api/publico/sedes/estado')
 }
 
 // 3) Estado web de los productos de Venecia, indexado por código.

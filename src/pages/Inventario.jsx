@@ -12,6 +12,7 @@ import {
   obtenerEstadoWeb,
   sincronizarWebCompleto,
   avisarWeb,
+  probarConexion,
 } from '../lib/sincronizarWeb'
 
 const TAMANO_LOTE = 400
@@ -92,6 +93,70 @@ function EtiquetaWeb({ producto, estado }) {
   )
 }
 
+function valorLegible(valor) {
+  if (valor === true) return 'sí'
+  if (valor === false) return 'no'
+  if (valor === null || valor === undefined || valor === '') return '—'
+  if (typeof valor === 'object') return JSON.stringify(valor)
+  return String(valor)
+}
+
+// Resultado del botón "Probar conexión".
+function ResultadoConexion({ resultado, onCerrar }) {
+  const { datos, error } = resultado
+  const origen = typeof window !== 'undefined' ? window.location.origin : ''
+
+  return (
+    <div
+      className={`p-3 rounded-lg mb-4 text-sm max-w-2xl border ${
+        error
+          ? 'bg-red-950/40 border-red-900 text-red-300'
+          : datos.origenPermitido === false
+          ? 'bg-amber-950/40 border-amber-800 text-amber-200'
+          : 'bg-emerald-950/40 border-emerald-900 text-emerald-200'
+      }`}
+    >
+      <div className="flex justify-between items-start gap-3">
+        <p className="font-medium">
+          {error ? 'Falló la conexión con la web' : 'Conexión con la web: OK'}
+        </p>
+        <button onClick={onCerrar} className="text-xs opacity-70 hover:underline">
+          Cerrar
+        </button>
+      </div>
+
+      {error ? (
+        <p className="mt-1">
+          {error.message}
+          {error.paso && <span className="opacity-70"> (paso: {error.paso})</span>}
+        </p>
+      ) : (
+        <ul className="mt-2 space-y-0.5">
+          <li>Base de datos: {valorLegible(datos.baseDeDatosMs)} ms</li>
+          <li>Productos de Venecia en Kennedy: {valorLegible(datos.productos)}</li>
+          <li>Origen permitido: {valorLegible(datos.origenPermitido)}</li>
+          <li>WhatsApp: {valorLegible(datos.whatsapp)}</li>
+          <li>
+            IA:{' '}
+            {datos.ia && typeof datos.ia === 'object'
+              ? Object.entries(datos.ia)
+                  .map(([nombre, valor]) => `${nombre} ${valorLegible(valor)}`)
+                  .join(' · ')
+              : valorLegible(datos.ia)}
+          </li>
+          <li>Quitar fondo: {valorLegible(datos.quitarFondo)}</li>
+        </ul>
+      )}
+
+      {!error && datos.origenPermitido === false && (
+        <p className="mt-2 font-medium">
+          Nelson tiene que agregar {origen} a VENECIA_ORIGEN.
+        </p>
+      )}
+    </div>
+  )
+}
+
 export default function Inventario() {
   const {
     productos,
@@ -120,6 +185,8 @@ export default function Inventario() {
   const [errorWeb, setErrorWeb] = useState('')
   const [publicando, setPublicando] = useState(null)
   const [sincronizando, setSincronizando] = useState(false)
+  const [probando, setProbando] = useState(false)
+  const [resultadoConexion, setResultadoConexion] = useState(null)
 
   useEffect(() => {
     if (webConfigurada) cargarEstadoWeb()
@@ -266,6 +333,18 @@ export default function Inventario() {
       setMensaje({ tipo: 'error', texto: 'No se pudo abrir la ficha web: ' + err.message })
     } finally {
       setPublicando(null)
+    }
+  }
+
+  async function handleProbarConexion() {
+    setProbando(true)
+    setResultadoConexion(null)
+    try {
+      setResultadoConexion({ datos: await probarConexion(), error: null })
+    } catch (err) {
+      setResultadoConexion({ datos: null, error: err })
+    } finally {
+      setProbando(false)
     }
   }
 
@@ -422,6 +501,13 @@ export default function Inventario() {
               </span>
             )}
             <button
+              onClick={handleProbarConexion}
+              disabled={probando}
+              className="text-sm px-3 py-1.5 rounded-lg border border-line text-slate-300 hover:bg-panel disabled:opacity-50"
+            >
+              {probando ? 'Probando...' : 'Probar conexión'}
+            </button>
+            <button
               onClick={cargarEstadoWeb}
               disabled={cargandoWeb}
               title="Actualizar estado web"
@@ -446,6 +532,12 @@ export default function Inventario() {
           La conexión con geekstore.com.co está desactivada: falta configurar la clave de la web
           (VITE_GEEK_API_KEY).
         </p>
+      )}
+      {resultadoConexion && (
+        <ResultadoConexion
+          resultado={resultadoConexion}
+          onCerrar={() => setResultadoConexion(null)}
+        />
       )}
       {webConfigurada && (errorWeb || errorCola) && (
         <p className="text-xs text-red-300 mb-3">Web: {errorWeb || errorCola}</p>
