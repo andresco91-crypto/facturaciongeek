@@ -6,13 +6,14 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { avisarWeb } from '../lib/sincronizarWeb'
+import { avisarWeb, precioEntero } from '../lib/sincronizarWeb'
 import { useProductosCtx } from '../hooks/useProductosContext'
 import { useCompraDraft } from '../hooks/useCompraDraft'
 import { generarSiguienteCodigo } from '../lib/codigos'
 
 export default function Compras() {
-  const { productos, buscar, aplicarAjustesLocales, agregarProductoLocal } = useProductosCtx()
+  const { productos, buscar, aplicarAjustesLocales, agregarProductoLocal, actualizarVariosLocal } =
+    useProductosCtx()
   const { items, setItems } = useCompraDraft() // persiste aunque navegues a otro módulo
   const [textoBusqueda, setTextoBusqueda] = useState('')
   const [guardando, setGuardando] = useState(false)
@@ -34,6 +35,9 @@ export default function Compras() {
         esNuevo: false,
         stockActual: producto.stock || 0,
         costoActual: producto.costoPromedio || 0,
+        // Vienen con los precios actuales; si los cambias, se actualizan al guardar.
+        precioPublico: producto.precioPublico || 0,
+        precioMayorista: producto.precioMayorista || 0,
       },
     ])
     setTextoBusqueda('')
@@ -59,6 +63,8 @@ export default function Compras() {
         esNuevo: true,
         stockActual: 0,
         costoActual: 0,
+        precioPublico: '',
+        precioMayorista: '',
       },
     ])
     setTextoBusqueda('')
@@ -99,10 +105,21 @@ export default function Compras() {
     return null
   }
 
+  // Los productos nuevos necesitan precio público para poder venderse
+  // (y para salir con precio en la página web).
+  function validarPrecios() {
+    for (const item of items) {
+      if (item.esNuevo && precioEntero(item.precioPublico) <= 0) {
+        return `Falta el precio público de "${item.nombre}".`
+      }
+    }
+    return null
+  }
+
   async function guardarCompra() {
     if (items.length === 0) return
 
-    const errorValidacion = validarCodigosUnicos()
+    const errorValidacion = validarCodigosUnicos() || validarPrecios()
     if (errorValidacion) {
       setMensaje({ tipo: 'error', texto: errorValidacion })
       return
@@ -116,7 +133,7 @@ export default function Compras() {
       // stock y el costo promedio ponderado. Así, si un mismo código aparece
       // en varias líneas con costos distintos, el resultado final es el
       // promedio de todas (y no se pisan unas a otras).
-      const estado = {} // codigo -> { nombre, esNuevo, stock, costo }
+      const estado = {} // codigo -> { nombre, esNuevo, stock, costo, precioPublico?, precioMayorista? }
 
       for (const item of items) {
         const codigo = String(item.codigo).trim()
@@ -141,10 +158,19 @@ export default function Compras() {
             ? (stockBase * e.costo + cantidad * costoNuevo) / unidadesPromedio
             : costoNuevo
         e.stock = e.stock + cantidad
+
+        // Precios de venta: si el mismo código está en varias líneas, manda
+        // la última. En un producto existente, un precio vacío o en 0 no
+        // cambia el precio que ya tenía (tampoco las líneas de un borrador viejo).
+        const pPublico = precioEntero(item.precioPublico)
+        const pMayorista = precioEntero(item.precioMayorista)
+        if (pPublico > 0 || e.esNuevo) e.precioPublico = pPublico
+        if (pMayorista > 0 || e.esNuevo) e.precioMayorista = pMayorista
       }
 
       const batch = writeBatch(db)
       const ajustesExistentes = []
+      const preciosCambiados = {}
       const productosNuevos = []
 
       for (const [codigo, e] of Object.entries(estado)) {
@@ -155,19 +181,28 @@ export default function Compras() {
             codigo,
             nombre: e.nombre,
             costoPromedio: e.costo,
-            precioPublico: 0,
-            precioMayorista: 0,
+            precioPublico: e.precioPublico || 0,
+            precioMayorista: e.precioMayorista || 0,
             stock: e.stock,
             garantia: '',
           }
           batch.set(productoRef, nuevoProducto)
           productosNuevos.push({ id: codigo, ...nuevoProducto })
         } else {
-          batch.set(
-            productoRef,
-            { stock: e.stock, costoPromedio: e.costo },
-            { merge: true }
-          )
+          const cambios = { stock: e.stock, costoPromedio: e.costo }
+          const actual = productos.find((p) => p.codigo === codigo) || {}
+          const precios = {}
+          if (e.precioPublico !== undefined && e.precioPublico !== precioEntero(actual.precioPublico)) {
+            precios.precioPublico = e.precioPublico
+          }
+          if (
+            e.precioMayorista !== undefined &&
+            e.precioMayorista !== precioEntero(actual.precioMayorista)
+          ) {
+            precios.precioMayorista = e.precioMayorista
+          }
+          if (Object.keys(precios).length > 0) preciosCambiados[codigo] = precios
+          batch.set(productoRef, { ...cambios, ...precios }, { merge: true })
           ajustesExistentes.push({
             codigo,
             nuevoStock: e.stock,
@@ -184,6 +219,10 @@ export default function Compras() {
           nombre: i.nombre,
           cantidad: Number(i.cantidad) || 0,
           costoUnitario: Number(i.costoUnitario) || 0,
+          ...(i.precioPublico !== undefined && { precioPublico: precioEntero(i.precioPublico) }),
+          ...(i.precioMayorista !== undefined && {
+            precioMayorista: precioEntero(i.precioMayorista),
+          }),
         })),
         total,
       })
@@ -197,6 +236,7 @@ export default function Compras() {
       })
       setItems([]) // limpia el borrador solo cuando la compra se guarda con éxito
       aplicarAjustesLocales(ajustesExistentes)
+      if (Object.keys(preciosCambiados).length > 0) actualizarVariosLocal(preciosCambiados)
       productosNuevos.forEach((p) => agregarProductoLocal(p))
     } catch (err) {
       setMensaje({ tipo: 'error', texto: 'Error al guardar la compra: ' + err.message })
@@ -206,7 +246,7 @@ export default function Compras() {
   }
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6 max-w-5xl">
       <h1 className="text-2xl font-bold mb-2">Registrar factura de compra</h1>
       {items.length > 0 && (
         <p className="text-xs text-amber-400 mb-2">
@@ -216,7 +256,8 @@ export default function Compras() {
       )}
       <p className="text-xs text-muted mb-3">
         Puedes agregar el mismo producto varias veces con costos distintos; al guardar, el
-        inventario promedia el costo.
+        inventario promedia el costo. Los precios público y mayorista que escribas quedan como
+        los nuevos precios de venta del producto.
       </p>
 
       <div className="relative mb-4">
@@ -258,6 +299,8 @@ export default function Compras() {
                 <th className="p-2 text-left">Producto</th>
                 <th className="p-2 text-right">Cantidad</th>
                 <th className="p-2 text-right">Costo unitario</th>
+                <th className="p-2 text-right">P. público</th>
+                <th className="p-2 text-right">P. mayorista</th>
                 <th className="p-2 text-right">Subtotal</th>
                 <th className="p-2"></th>
               </tr>
@@ -300,6 +343,34 @@ export default function Compras() {
                       min="0"
                       value={item.costoUnitario}
                       onChange={(e) => actualizarItem(idx, 'costoUnitario', e.target.value)}
+                      className="w-28 border border-line rounded-md px-2 py-1 text-right"
+                    />
+                  </td>
+                  <td className="p-2 text-right">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={item.esNuevo ? 'Obligatorio' : '0'}
+                      value={item.precioPublico ?? ''}
+                      onChange={(e) => actualizarItem(idx, 'precioPublico', e.target.value)}
+                      className={`w-28 border rounded-md px-2 py-1 text-right ${
+                        item.esNuevo && precioEntero(item.precioPublico) <= 0
+                          ? 'border-amber-600'
+                          : 'border-line'
+                      }`}
+                    />
+                    {precioEntero(item.precioPublico) > 0 &&
+                      precioEntero(item.precioPublico) < Number(item.costoUnitario || 0) && (
+                        <div className="text-xs text-red-400 mt-1">Menor que el costo</div>
+                      )}
+                  </td>
+                  <td className="p-2 text-right">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={item.precioMayorista ?? ''}
+                      onChange={(e) => actualizarItem(idx, 'precioMayorista', e.target.value)}
                       className="w-28 border border-line rounded-md px-2 py-1 text-right"
                     />
                   </td>
